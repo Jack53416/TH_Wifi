@@ -31,3 +31,9 @@
 # Debug files
 *.dSYM/
 *.su
+
+# Additional files in the project
+*.bin
+/.settings
+.cproject
+.project
