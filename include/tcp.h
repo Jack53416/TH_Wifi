@@ -20,7 +20,7 @@
 #define TCP_PORT 48042
 #define HEAD_SIZE 3
 #define SND_STR "0x%02d %d %d %02d/%02d/%d %02d:%02d:%02d\n"
-#define SEND_CHUNK 100
+#define SEND_CHUNK SEC_CAPACITY/2
 
 #define MES_TEMPLATE "{\"mac\":\"%s\",\"volt\":\"%03d\",\"m\":["
 #define MES_VAL_TEMPLATE "{\"tm\":\"%04d\",\"h\":\"%03d\",\"ts\":\"%010d\"}"

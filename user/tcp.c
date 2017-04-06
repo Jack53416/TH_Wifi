@@ -376,7 +376,7 @@ void ICACHE_FLASH_ATTR sendMeasurements_cb(void* arg)
 				if(!ptrToSndData)
 					ptrToSndData=ToOneString(measurementsToSend,dataOffset);
 			}
-			http_post(readParams()->ServerAddress,ptrToSndData,"Accept: application/json\r\nContent-Type: application/json\r\n", http_cb);
+			http_post(readParams()->ServerAddress,&ptrToSndData,"Accept: application/json\r\nContent-Type: application/json\r\n", http_cb);
 
 		}
 
@@ -449,6 +449,7 @@ char* ICACHE_FLASH_ATTR ToOneString(int measurementCount, uint16_t offset)
 				os_memcpy(result+BASIC_LENGTH+i*(MES_LENGTH+1),tmp,MES_LENGTH+1);
 				os_free(tmp);
 			}
+			system_soft_wdt_feed();
 		}
 		result[rSize-3]='}';
 		result[rSize-2]='\r';
@@ -456,7 +457,7 @@ char* ICACHE_FLASH_ATTR ToOneString(int measurementCount, uint16_t offset)
 		result[rSize]='\0';
 	}
 	ets_uart_printf("strlen:%d",strlen(result));
-	ets_uart_printf("%s\r\n",result);
+	//ets_uart_printf("%s\r\n",result);
 	return result;
 }
 
@@ -681,6 +682,8 @@ void ICACHE_FLASH_ATTR http_cb(char * response_body, int http_status, char * res
 				os_free(ptrToSndData);
 				ptrToSndData=NULL;
 			}
+			else
+				ets_uart_printf("ptrToSnd is NULL! \r\n");
 		//ets_uart_printf("END C: %x\r\n",response_body[body_size+2]);
 		if(!parseAnswer(response_body,body_size+2))
 			ets_uart_printf("PARSOWANIE ZJEBANE \n");
@@ -694,6 +697,8 @@ void ICACHE_FLASH_ATTR http_cb(char * response_body, int http_status, char * res
 			{
 				if(ptrToSndData)
 					os_free(ptrToSndData);
+				else
+					ets_uart_printf("ptrToSnd is NULL! \r\n");
 				os_timer_disarm(&sendingTimer);
 				fallAsleep(RF_CALIBRATION);
 			}
