@@ -6,7 +6,6 @@
  */
 #include "data_storage.h"
 /*TO DO
- * 1)Zapis pomiarów na kolejne sektory
  * 2)Hash do sektorów pomiarowych
  */
 measurement current_mes;
@@ -46,15 +45,25 @@ void ICACHE_FLASH_ATTR storeMeasurement()
 {
 	uint8_t saveAddress;
 	uint32_t measurementNr;
+	uint32_t totalMesNr;
+	uint32_t saveSector;
 	measurementNr=readMeasurementCount(true);
 	measurementNr++;
-	if(measurementNr>MAX_MES_NR)
+	if(measurementNr>RTC_MES_CAPACITY)
 	{
 		measurementNr=1;
-		storeToFlash(DATA_SEC1);
+		totalMesNr=readMeasurementCount(false);
+		saveSector=END_SEC-(uint8_t)((totalMesNr - RTC_MES_CAPACITY)/SEC_CAPACITY);
+		ets_uart_printf("Saving at sector %x \r\n",saveSector);
+		if(saveSector < START_SEC)
+			saveSector = START_SEC;
+		storeToFlash(saveSector);
 		overflowDataCount=readOverflowSectorCount();
-		overflowDataCount++;
-		saveOverflowSectorCount();
+		if(overflowDataCount < MAX_OVERFLOW_NR)    // redundancy with ifs and overflowSectorCount, can be done
+		{											// within one if
+			overflowDataCount++;
+			saveOverflowSectorCount();
+		}
 
 	}
 		saveAddress=MEASUREMENTS_START_INDEX+MES_SIZE*(measurementNr-1);
@@ -68,17 +77,22 @@ measurement* ICACHE_FLASH_ATTR readMeasurement(uint16_t mesNr)
 	uint32_t readIndex;
 	uint32_t mesCount=readMeasurementCount(false);
 	uint32_t mesRTC_Count=readMeasurementCount(true);
+	uint32_t readSector;
 	if(mesRTC_Count>mesNr)
 	{
 		readIndex=MEASUREMENTS_START_INDEX+MES_SIZE*mesNr;
-#ifdef DEBUG
-		ets_uart_printf("attempt to read mes nr:%d with readIndex:%d\r\n",mesNr,readIndex);//debug
-#endif
+		//ets_uart_printf("attempt to read mes nr:%d with readIndex:%d\r\n",mesNr,readIndex);//debug
 		system_rtc_mem_read(readIndex,&readMes,BLOCK_SIZE*MES_SIZE*sizeof(char));
 	}
 	else if(mesCount>mesNr)
 	{
-		readFromFlash(DATA_SEC1,mesNr-mesRTC_Count,&readMes,sizeof(measurement));
+		readSector=END_SEC - (uint8_t)((mesCount - mesRTC_Count)/SEC_CAPACITY) + (uint8_t)((mesNr-mesRTC_Count)/SEC_CAPACITY);
+		readIndex= (mesNr-mesRTC_Count) % SEC_CAPACITY;
+
+		if(((END_SEC - readSector) * SEC_CAPACITY + mesRTC_Count + readIndex) >= mesCount ) //check if given indx for given sector is possible
+			readSector++; // if not search in the next sector
+		ets_uart_printf("Reading from flash sector:%x  mesNr:%d flash inx:%d \r\n",readSector, mesNr, readIndex);
+		readFromFlash(readSector,readIndex,&readMes,sizeof(measurement));
 	}
 	return &readMes;
 }
@@ -93,7 +107,7 @@ int ICACHE_FLASH_ATTR readMeasurementCount(bool OnlyRTC)
 	{
 		overflowMes=readOverflowSectorCount();
 		//ets_uart_printf("Overflow data count:%d\r\n",overflowMes);
-		mesCount=mesCount+MAX_MES_NR*overflowMes;
+		mesCount=mesCount+RTC_MES_CAPACITY*overflowMes;
 	}
 	//ets_uart_printf("Mes Count readed : %d\r\n",mesCount);
 	return mesCount;
@@ -153,23 +167,24 @@ void ICACHE_FLASH_ATTR readFromFlash(uint16 sector,uint32 indx,void* destination
 
 void ICACHE_FLASH_ATTR storeToFlash(uint16 sector)
 {
-#ifdef DEBUG
-	ets_uart_printf("Flash_saving!!\r\n");
-#endif
-	uint32 data_size=readMeasurementCount(false);
+	uint32 data_size=readMeasurementCount(false) - (END_SEC -sector) * SEC_CAPACITY;
 	uint32_t tmp;
 	measurement* mes_table=NULL;
 	int i=0;
+	ets_uart_printf("Reading from flash, data size: %d \r\n", data_size);
+	if(data_size > MAX_MES_TOTAL-RTC_MES_CAPACITY) // 500 do zgrania na flasha, 0-50 bedzie RTC
+		data_size = SEC_CAPACITY;
 
 	mes_table=(measurement*)os_malloc(data_size*sizeof(measurement));
 	if(mes_table)
 	{
-		for(i=0; i<data_size;i++) //chyba lepiej isc w dol, w przypadku jak sie nie zmiesci mozna przeniesc na 2 sektor
+		for(i=0; i<data_size;i++)
 		{
 			readMeasurement(i);
 			mes_table[i].temperature=readMes.temperature;
 			mes_table[i].humidity=readMes.humidity;
 			mes_table[i].offset_time=readMes.offset_time;
+			system_soft_wdt_feed();
 		}
 
 		spi_flash_erase_sector(sector);

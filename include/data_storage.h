@@ -21,20 +21,18 @@
 #define MAX_MEMORY_INDEX 192
 
 #define INIT_NONCE 0xDAADBEEF
-#define MEASUREMENT_STRING_SIZE 3 //3 blocks, 12 bytes
 #define MES_SIZE sizeof(measurement)/4
 #define BLOCK_SIZE 4
 #define RECENT_DATA_SIZE 20 //bytes
-#define MAX_MES_NR 50
+#define RTC_MES_CAPACITY 56
 /*FLASH*/
-#define START_SEC 0x7C
-#define DATA_SEC1 0x51
+#define START_SEC 0x59
 #define PARAM_START_SEC 0x7D
-#define END_SEC 0x7B
-#define HASH_ADDRESS 999
-#define MES_COUNT_ADDRESS 0
+#define END_SEC 0x7C
+#define SEC_CAPACITY 504
 
-#define MAX_MES_TOTAL 550
+#define MAX_MES_TOTAL 18200//(END_SEC-START_SEC+1)*SEC_CAPACITY + RTC_MES_CAPACITY
+#define MAX_OVERFLOW_NR (MAX_MES_TOTAL-RTC_MES_CAPACITY)/RTC_MES_CAPACITY
 
 typedef struct
 {
