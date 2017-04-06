@@ -25,7 +25,7 @@
 typedef struct {
 	char * path;
 	int port;
-	char * post_data;
+	char ** post_data;
 	char * headers;
 	char * hostname;
 	char * buffer;
@@ -227,18 +227,18 @@ static void ICACHE_FLASH_ATTR sent_callback(void * arg)
 	struct espconn * conn = (struct espconn *)arg;
 	request_args * req = (request_args *)conn->reverse;
 
-	if (req->post_data == NULL) {
+	if (*req->post_data == NULL) {
 		PRINTF("All sent\n");
 	}
 	else {
 		// The headers were sent, now send the contents.
 		PRINTF("Sending request body\n");
 		if (req->secure)
-			espconn_secure_sent(conn, (uint8_t *)req->post_data, strlen(req->post_data));
+			espconn_secure_sent(conn, (uint8 *)(*req->post_data), strlen(*req->post_data));
 		else
-			espconn_sent(conn, (uint8_t *)req->post_data, strlen(req->post_data));
-		os_free(req->post_data);
-		req->post_data = NULL;
+			espconn_sent(conn, (uint8 *)*req->post_data, strlen(*req->post_data));
+		os_free(*req->post_data);
+		*req->post_data = NULL;
 	}
 }
 
@@ -254,9 +254,9 @@ static void ICACHE_FLASH_ATTR connect_callback(void * arg)
 	const char * method = "GET";
 	char post_headers[32] = "";
 
-	if (req->post_data != NULL) { // If there is data this is a POST request.
+	if (*req->post_data != NULL) { // If there is data this is a POST request.
 		method = "POST";
-		os_sprintf(post_headers, "Content-Length: %d\r\n", strlen(req->post_data));
+		os_sprintf(post_headers, "Content-Length: %d\r\n", strlen(*req->post_data));
 	}
 
 	char buf[69 + strlen(method) + strlen(req->path) + strlen(req->hostname) +
@@ -355,7 +355,8 @@ static void ICACHE_FLASH_ATTR dns_callback(const char * hostname, ip_addr_t * ad
 			req->user_callback("", -1, "", 0);
 		}
 		os_free(req->buffer);
-		os_free(req->post_data);
+		os_free(*req->post_data);
+		*req->post_data = NULL;
 		os_free(req->headers);
 		os_free(req->path);
 		os_free(req->hostname);
@@ -389,7 +390,7 @@ static void ICACHE_FLASH_ATTR dns_callback(const char * hostname, ip_addr_t * ad
 	}
 }
 
-void ICACHE_FLASH_ATTR http_raw_request(const char * hostname, int port, bool secure, const char * path, const char * post_data, const char * headers, http_callback user_callback)
+void ICACHE_FLASH_ATTR http_raw_request(const char * hostname, int port, bool secure, const char * path, char ** post_data, const char * headers, http_callback user_callback)
 {
 	PRINTF("DNS request\n");
 	err_t error;
@@ -399,7 +400,7 @@ void ICACHE_FLASH_ATTR http_raw_request(const char * hostname, int port, bool se
 	req->port = port;
 	req->secure = secure;
 	req->headers = esp_strdup(headers);
-	req->post_data = esp_strdup(post_data);
+	req->post_data = post_data;//esp_strdup(post_data);
 	req->buffer_size = 1;
 	req->buffer = (char *)os_malloc(1);
 	req->buffer[0] = '\0'; // Empty string.
@@ -442,7 +443,7 @@ void ICACHE_FLASH_ATTR http_raw_request(const char * hostname, int port, bool se
  * <host> can be a hostname or an IP address
  * <port> is optional
  */
-void ICACHE_FLASH_ATTR http_post(const char * url, const char * post_data, const char * headers, http_callback user_callback)
+void ICACHE_FLASH_ATTR http_post(const char * url, char ** post_data, const char * headers, http_callback user_callback)
 {
 	// FIXME: handle HTTP auth with http://user:pass@host/
 	// FIXME: get rid of the #anchor part if present.
