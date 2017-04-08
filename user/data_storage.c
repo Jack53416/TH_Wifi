@@ -76,7 +76,7 @@ measurement* ICACHE_FLASH_ATTR readMeasurement(uint16_t mesNr)
 	{
 		readIndex=translateIndex(mesNr, &readSector);
 
-		ets_uart_printf("attempt to read mes nr:%d with readIndex:%d\r\n",mesNr,readIndex-1);//debug
+		ets_uart_printf("attempt to read mes nr:%d with readIndex:%d\r\n",mesNr,readIndex);//debug
 		system_rtc_mem_read(MEASUREMENTS_START_INDEX+MES_SIZE*readIndex,&readMes,BLOCK_SIZE*MES_SIZE*sizeof(char));
 	}
 	else if(mesCount>mesNr)
@@ -334,7 +334,7 @@ void ICACHE_FLASH_ATTR initFlash()
 	unsigned int i;
 	clearSector.secData.mBlockCount=0;
 
-	while(saveSector < END_SEC)
+	while(saveSector <= END_SEC)
 	{
 		spi_flash_erase_sector(saveSector);
 		spi_flash_write(saveSector*4*1024,(uint32*)&clearSector,sizeof(DataSec));
@@ -346,26 +346,26 @@ uint16_t ICACHE_FLASH_ATTR translateIndex(uint16_t indx, uint32_t * sector)
 {
 	uint32_t readSector;
 	Metadata metaData;
+	uint16_t result;
 	if(indx < readMeasurementCount(true))
 	{
 		return readMeasurementCount(true) - indx - 1;
 	}
 
 	indx-= readMeasurementCount(true);
-	readSector = START_SEC+(uint8_t)((readMeasurementCount(false) - readMeasurementCount(true))/SEC_CAPACITY);
+	readSector = START_SEC+(uint8_t)((readMeasurementCount(false) - readMeasurementCount(true) - 1)/SEC_CAPACITY);
+
 	metaData = readSectorMetadata(readSector);
-
-	*sector = readSector;
-	ets_uart_printf("Metadata from sec %x is %d\r\n", readSector, metaData.mBlockCount);
-
-	if(indx >= metaData.mBlockCount * RTC_MES_CAPACITY)
+	while(indx >= metaData.mBlockCount * RTC_MES_CAPACITY)
 	{
 		indx -= metaData.mBlockCount * RTC_MES_CAPACITY;
 		readSector--;
-		*sector = readSector;
-		return SEC_CAPACITY - indx - 1;
+		if(readSector < START_SEC)
+			return -1;
+		metaData = readSectorMetadata(readSector);
 	}
 
+	*sector = readSector;
 	return metaData.mBlockCount*RTC_MES_CAPACITY - indx -1;
 
 }
