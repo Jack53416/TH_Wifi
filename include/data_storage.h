@@ -60,16 +60,22 @@ typedef struct
 	uint32_t  offset_time;
 }measurement;
 
+
 typedef struct
 {
-	uint8_t day;
-	uint8_t month;
-	uint16_t year;
-	uint8_t hour;
-	uint8_t minute;
-	uint8_t second;
+	uint8_t mBlockCount;
+}Metadata;
 
-}date;
+typedef struct
+{
+	measurement measurements[RTC_MES_CAPACITY];
+}MesBlock;
+
+typedef struct
+{
+	MesBlock mBlocks[SEC_CAPACITY/RTC_MES_CAPACITY];
+	Metadata secData;
+}DataSec;
 
 enum Flags
 {
@@ -94,9 +100,14 @@ uint32_t ICACHE_FLASH_ATTR readOverflowSectorCount();
 
 void ICACHE_FLASH_ATTR storeDate(uint32_t new_date);
 uint32_t ICACHE_FLASH_ATTR readDate();
-date* ICACHE_FLASH_ATTR unixToDate(uint32_t Udate);//obsolete
+
 
 void ICACHE_FLASH_ATTR storeToFlash(uint16 sector);
+void ICACHE_FLASH_ATTR storeInFlash();
+void ICACHE_FLASH_ATTR initFlash();
+uint16_t ICACHE_FLASH_ATTR translateIndex(uint16_t indx, uint32_t * sector);
+Metadata ICACHE_FLASH_ATTR readSectorMetadata (uint32_t sector);
+measurement ICACHE_FLASH_ATTR readSectorMeasurement (uint32_t sector, uint16_t indx);
 void ICACHE_FLASH_ATTR readFromFlash(uint16 sector,uint32 indx,void* destination, uint32 size);
 /*TO DO*/
 uint16_t ICACHE_FLASH_ATTR calculateHash();
