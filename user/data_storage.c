@@ -220,6 +220,15 @@ void ICACHE_FLASH_ATTR initRTC_memory()
 			initVal=INIT_NONCE;
 			system_rtc_mem_write(INIT_NONCE_INDEX,&initVal,sizeof(uint32_t));
 			initFlash();
+
+			/*int i;
+				for(i = 0 ; i<690 ; i++)
+				{
+					saveTemperature(23);
+					saveHumidity(43);
+					saveOffsetTime(1477147673 + i);
+					storeMeasurement();
+				}*/
 		}
 }
 

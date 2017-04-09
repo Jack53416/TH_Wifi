@@ -352,12 +352,7 @@ void ICACHE_FLASH_ATTR sendMeasurements_cb(void* arg)
 		if(sendingSuccesfull) //jesli udalo sie wyslac poprzedni pakiet przechodzimy dalej, jak nie to poprawka
 			{
 				sendingSuccesfull=false;
-				if(measurementsToSend > SEND_CHUNK)
-					measurementsToSend-=SEND_CHUNK;
-				else
-					measurementsToSend=-1;
-				 //mamy tablice stala wiec po prostu zmieniamy obecny index i dane sie same nadpisuja
-
+				ets_uart_printf("Measurements to send : %d\r\n", measurementsToSend);
 			}
 		else if(stillSending==false && !sendingSuccesfull)
 		{
@@ -387,7 +382,7 @@ void ICACHE_FLASH_ATTR sendMeasurements_cb(void* arg)
 			storeDate(recentDate);
 			time_t a= recentDate;
 			rtcSaveUnixTime(&a);
-			delMeasurement(true);
+			//delMeasurement(true);
 			os_timer_disarm(&sendingTimer);
 			if(readParams()->sendingInterval != 1)
 				fallAsleep(NO_RF_CALIBRATION);
@@ -440,9 +435,9 @@ char* ICACHE_FLASH_ATTR ToOneString(int measurementCount, uint16_t offset)
 		for(i=0;i<measurementCount;i++)
 		{
 		    if(i!= measurementCount-1)
-                tmp=ToSendFormat(readMeasurement(i+offset),false);
+                tmp=ToSendFormat(readMeasurement(i),false);
             else
-            	tmp=ToSendFormat(readMeasurement(i+offset),true);
+            	tmp=ToSendFormat(readMeasurement(i),true);
 			if(tmp)
 			{
 				//strncat(result,tmp,MES_LENGTH+1);
@@ -687,6 +682,10 @@ void ICACHE_FLASH_ATTR http_cb(char * response_body, int http_status, char * res
 		//ets_uart_printf("END C: %x\r\n",response_body[body_size+2]);
 		if(!parseAnswer(response_body,body_size+2))
 			ets_uart_printf("PARSOWANIE ZJEBANE \n");
+		measurementsToSend -= SEND_CHUNK;
+		deleteMeasurements(RTC_BLOCK_CHUNK);
+		ets_uart_printf("deleted one chunk! now on RTC :%d and in total :%d\r\n",
+				readMeasurementCount(true), readMeasurementCount(false));
 	}
 		else
 		{
