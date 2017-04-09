@@ -29,7 +29,8 @@ void ICACHE_FLASH_ATTR user_init(void)
 	PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO4_U, FUNC_GPIO4);
 	GPIO_DIS_OUTPUT(4);
 	PIN_PULLUP_EN(PERIPHS_IO_MUX_GPIO4_U);
-	/*sprawdzac czy nie ma juz jakiegos trybu jak byl to reset techniczny*/
+	//sprawdzac czy nie ma juz jakiegos trybu jak byl to reset techniczny
+
 	if(!readPar->sendNow && !readPar->configMode)
 		checkButton();
 	ets_uart_printf("Flash ID: %d\r\n", spi_flash_get_id());
