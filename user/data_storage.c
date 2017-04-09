@@ -53,8 +53,8 @@ void ICACHE_FLASH_ATTR storeMeasurement()
 		storeInFlash();
 		overflowDataCount=readOverflowSectorCount();
 
-		if(overflowDataCount < MAX_OVERFLOW_NR)    // redundancy with ifs and overflowSectorCount, can be done
-		{											// within one if
+		if(overflowDataCount < MAX_OVERFLOW_NR)
+		{
 			overflowDataCount++;
 			saveOverflowSectorCount();
 		}
@@ -76,21 +76,23 @@ measurement* ICACHE_FLASH_ATTR readMeasurement(uint16_t mesNr)
 	{
 		readIndex=translateIndex(mesNr, &readSector);
 
-		ets_uart_printf("attempt to read mes nr:%d with readIndex:%d\r\n",mesNr,readIndex);//debug
+		//ets_uart_printf("attempt to read mes nr:%d with readIndex:%d\r\n",mesNr,readIndex);//debug
 		system_rtc_mem_read(MEASUREMENTS_START_INDEX+MES_SIZE*readIndex,&readMes,BLOCK_SIZE*MES_SIZE*sizeof(char));
+		return &readMes;
 	}
 	else if(mesCount>mesNr)
 	{
 		readIndex = translateIndex(mesNr, &readSector);
-		ets_uart_printf("attempt to read from sec:%x with readIndex:%d\r\n",readSector,readIndex);
+		//ets_uart_printf("attempt to read from sec:%x with readIndex:%d\r\n",readSector,readIndex);
 		readFromFlash(readSector,readIndex,&readMes,sizeof(measurement));
+		return &readMes;
 	}
-	return &readMes;
+	return NULL;
 }
 
 int ICACHE_FLASH_ATTR readMeasurementCount(bool OnlyRTC)
 {
-	uint32_t mesCount=999;
+	uint32_t mesCount=0;
 	uint32 overflowMes=0;
 	system_rtc_mem_read(DATA_COUNT_INDEX,&mesCount,sizeof(mesCount));
 
@@ -321,7 +323,7 @@ void ICACHE_FLASH_ATTR storeInFlash()
 	sector.mBlocks[sector.secData.mBlockCount] = rtc;
 	sector.secData.mBlockCount++;
 
-	ets_uart_printf("Writing to flash, sector:%x , block count:%d\r\n", saveSector, sector.secData.mBlockCount);
+	//ets_uart_printf("Writing to flash, sector:%x , block count:%d\r\n", saveSector, sector.secData.mBlockCount);
 	spi_flash_erase_sector(saveSector);
 	spi_flash_write(saveSector*4*1024,(uint32*)&sector,sizeof(DataSec));
 
@@ -369,7 +371,6 @@ uint16_t ICACHE_FLASH_ATTR translateIndex(uint16_t indx, uint32_t * sector)
 	return metaData.mBlockCount*RTC_MES_CAPACITY - indx -1;
 
 }
-
 Metadata ICACHE_FLASH_ATTR readSectorMetadata (uint32_t sector)
 {
 	Metadata result;
@@ -384,4 +385,48 @@ measurement ICACHE_FLASH_ATTR readSectorMeasurement (uint32_t sector, uint16_t i
 	spi_flash_read(sector*4*1024+indx*sizeof(measurement)
 			, (uint32*)&result,sizeof(Metadata));
 	return result;
+}
+
+bool deleteMeasurements(uint16_t blocksToDelete)
+{
+	uint32_t deleteSector;
+	uint32_t mesCount = 0;
+	uint32_t overflowCount;
+	DataSec delSector;
+	system_rtc_mem_write(DATA_COUNT_INDEX,&mesCount,sizeof(mesCount));
+	if(blocksToDelete == 0)
+		return true;
+
+	overflowCount = readOverflowSectorCount();
+
+	if(blocksToDelete > overflowCount)
+		blocksToDelete = overflowCount;
+
+	overflowCount -= blocksToDelete;
+	deleteSector = START_SEC+(uint8_t)((readMeasurementCount(false) - readMeasurementCount(true) - 1)/SEC_CAPACITY);
+	while(blocksToDelete > 0)
+	{
+		spi_flash_read(deleteSector*4*1024, (uint32*)&delSector,sizeof(DataSec));
+		//ets_uart_printf("Rmeta: %d \r\n",delSector.secData);
+		if(delSector.secData.mBlockCount < blocksToDelete)
+		{
+			blocksToDelete -= delSector.secData.mBlockCount;
+			delSector.secData.mBlockCount = 0;
+			spi_flash_erase_sector(deleteSector);
+			spi_flash_write(deleteSector*4*1024,(uint32*)&delSector,sizeof(DataSec));
+			deleteSector--;
+		}
+		else
+		{
+			delSector.secData.mBlockCount -= blocksToDelete;
+			blocksToDelete = 0;
+			spi_flash_erase_sector(deleteSector);
+			spi_flash_write(deleteSector*4*1024,(uint32*)&delSector,sizeof(DataSec));
+		}
+		//ets_uart_printf("RECENT SECTOR : %x, recentMetadata:%d\r\n" , deleteSector, delSector.secData.mBlockCount);
+		system_soft_wdt_feed();
+	}
+	//ets_uart_printf("saving overflow : %d\r\n", overflowCount);
+	system_rtc_mem_write(OVERFLOW_SEC_INDEX,&overflowCount,sizeof(uint32_t));
+	return true;
 }
