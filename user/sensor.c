@@ -48,7 +48,7 @@ void ICACHE_FLASH_ATTR  sensor_timerfunc(void *arg)
 	sendingInterval=currPar->sendingInterval;
 
     saveTemperature(SHT21_GetVal(GET_SHT_TEMPERATURE));
-    saveHumidity(SHT21_GetVal(GET_SHT_HUMIDITY));    /*);*/
+    saveHumidity(SHT21_GetVal(GET_SHT_HUMIDITY));
     saveOffsetTime(rtcGetUnixTime());
     if(areTresholdsExceeded(getTemperature(),getHumidity()) && !currPar->SetupWifi)
     {
@@ -56,13 +56,14 @@ void ICACHE_FLASH_ATTR  sensor_timerfunc(void *arg)
     	//currPar->sendNow=true;
     	currPar->SetupWifi=true;
     	currPar->sendingInterval=1;
-    	currPar->sleepTime_s=60*20;
+    	if(readPar->sleepTime_s > ALERT_MES_INTERVAL)
+    		currPar->sleepTime_s= ALERT_MES_INTERVAL;
     	storeParams();
-    	system_deep_sleep_set_option(1);
+    	system_deep_sleep_set_option(RF_CALIBRATION);
     	system_deep_sleep_instant(100);
     }
     mesCount=readMeasurementCount(false);
-    if(mesCount<= MAX_MES_TOTAL)
+   // if(mesCount<= MAX_MES_TOTAL) do nadpisywania wylaczone!
     	storeMeasurement();
 
 	if(readMeasurementCount(false)<sendingInterval-1)

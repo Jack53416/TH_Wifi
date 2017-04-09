@@ -1,8 +1,8 @@
 #ifndef __USER_CONFIG_H__
 #define __USER_CONFIG_H__
 
-#define DEF_WIFI_SSID "th_wifi"
-#define DEF_WIFI_PASSWORD "Open34W#Close"
+#define DEF_WIFI_SSID "ZzzzZZZzz"
+#define DEF_WIFI_PASSWORD "Harmonics21"
 #define DEF_CONFIG_WIFI_SSID "thWifi_cfg"
 #define DEF_CONFIG_WIFI_PASSWORD "pBWc05hDM!a"
 #define DEF_TCP_IP "192.168.0.100"
@@ -10,10 +10,10 @@
 #define DEF_SLEEP_TIME_S 2
 #define DEF_SETUP_WIFI false
 #define DEF_REMOTE_TCP_PORT 48042
-#define DEF_SERV_ADDR "http://10.24.33.18/push/GVyKRAGt22bwqbFoVRfzbDWg"
+#define DEF_SERV_ADDR "http://student.zts.p.lodz.pl/lab259/strona/server.php?key=105"
 #define DEF_SENSOR_ID "NOT NAMED"
 
-#define MAX_SEND_INT 550
+#define MAX_SEND_INT 18200
 #define MAX_SLEEP_TIME_S 255*60
 
 #define BLINK_PERIOD 1000

@@ -14,9 +14,8 @@
 #include "data_storage.h"
 #include "sleep.h"
 #include "driver/rtc_i2c.h"
-#define MEASUREMENT_PACKET_SIZE 28
 
-
+#define ALERT_MES_INTERVAL 60*20
 
 void ICACHE_FLASH_ATTR sensor_timerfunc(void *arg);
 bool ICACHE_FLASH_ATTR first_SHT21_Init(void);

@@ -21,20 +21,18 @@
 #define MAX_MEMORY_INDEX 192
 
 #define INIT_NONCE 0xDAADBEEF
-#define MEASUREMENT_STRING_SIZE 3 //3 blocks, 12 bytes
 #define MES_SIZE sizeof(measurement)/4
 #define BLOCK_SIZE 4
 #define RECENT_DATA_SIZE 20 //bytes
-#define MAX_MES_NR 50
+#define RTC_MES_CAPACITY 56
 /*FLASH*/
-#define START_SEC 0x7C
-#define DATA_SEC1 0x51
+#define START_SEC 0x59
 #define PARAM_START_SEC 0x7D
-#define END_SEC 0x7B
-#define HASH_ADDRESS 999
-#define MES_COUNT_ADDRESS 0
+#define END_SEC 0x7C
+#define SEC_CAPACITY 504
 
-#define MAX_MES_TOTAL 550
+#define MAX_MES_TOTAL 18200//(END_SEC-START_SEC+1)*SEC_CAPACITY + RTC_MES_CAPACITY
+#define MAX_OVERFLOW_NR (MAX_MES_TOTAL-RTC_MES_CAPACITY)/RTC_MES_CAPACITY
 
 typedef struct
 {
@@ -62,16 +60,22 @@ typedef struct
 	uint32_t  offset_time;
 }measurement;
 
+
 typedef struct
 {
-	uint8_t day;
-	uint8_t month;
-	uint16_t year;
-	uint8_t hour;
-	uint8_t minute;
-	uint8_t second;
+	uint8_t mBlockCount;
+}Metadata;
 
-}date;
+typedef struct
+{
+	measurement measurements[RTC_MES_CAPACITY];
+}MesBlock;
+
+typedef struct
+{
+	MesBlock mBlocks[SEC_CAPACITY/RTC_MES_CAPACITY];
+	Metadata secData;
+}DataSec;
 
 enum Flags
 {
@@ -96,9 +100,14 @@ uint32_t ICACHE_FLASH_ATTR readOverflowSectorCount();
 
 void ICACHE_FLASH_ATTR storeDate(uint32_t new_date);
 uint32_t ICACHE_FLASH_ATTR readDate();
-date* ICACHE_FLASH_ATTR unixToDate(uint32_t Udate);//obsolete
+
 
 void ICACHE_FLASH_ATTR storeToFlash(uint16 sector);
+void ICACHE_FLASH_ATTR storeInFlash();
+void ICACHE_FLASH_ATTR initFlash();
+uint16_t ICACHE_FLASH_ATTR translateIndex(uint16_t indx, uint32_t * sector);
+Metadata ICACHE_FLASH_ATTR readSectorMetadata (uint32_t sector);
+measurement ICACHE_FLASH_ATTR readSectorMeasurement (uint32_t sector, uint16_t indx);
 void ICACHE_FLASH_ATTR readFromFlash(uint16 sector,uint32 indx,void* destination, uint32 size);
 /*TO DO*/
 uint16_t ICACHE_FLASH_ATTR calculateHash();
