@@ -47,7 +47,7 @@ bool ICACHE_FLASH_ATTR isValidIp(char* ipString);
 void ICACHE_FLASH_ATTR sendMeasurements(int totalMeasurements, int interval);
 void ICACHE_FLASH_ATTR sendMeasurements_cb(void* arg);
 bool ICACHE_FLASH_ATTR isStillSending();
-char* ICACHE_FLASH_ATTR ToSendFormat(measurement* data, bool IsLast);
+char* ICACHE_FLASH_ATTR ToSendFormat(Measurement* data, bool IsLast);
 char* ICACHE_FLASH_ATTR ToOneString(int measurementCount, uint16_t offset);
 char* ICACHE_FLASH_ATTR ParamsToString();
 bool ICACHE_FLASH_ATTR  parseAnswer(char* dataString, int size);
@@ -60,5 +60,5 @@ void ICACHE_FLASH_ATTR SendData(enum RX_INFOS mode, char* data, uint16_t len);
 void ICACHE_FLASH_ATTR SendData_cb(void* arg);
 void ICACHE_FLASH_ATTR http_cb(char * response_body, int http_status, char * response_headers, int body_size);
 void ICACHE_FLASH_ATTR saveVoltage(uint16_t voltage);
-bool ICACHE_FLASH_ATTR searchForNewParams(params* newPar);
+bool ICACHE_FLASH_ATTR searchForNewParams(Params* newPar);
 #endif /* INCLUDE_TCP_H_ */

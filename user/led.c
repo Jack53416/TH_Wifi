@@ -67,29 +67,29 @@ void ICACHE_FLASH_ATTR blinkerCB(void *arg)
 
 void ICACHE_FLASH_ATTR signalizeStatus(STATUS status)
 {
-	params* parPtr=NULL;
+	Params* parPtr=NULL;
 	parPtr=readParams();
 	switch(status)
 	{
 		case GOOD:
-			if(parPtr->sendNow)
+			if(parPtr->flags.sendNow)
 				blinkGreen(BLINK_PERIOD,BLINK_PW);
-			else if(parPtr->configMode)
+			else if(parPtr->flags.configMode)
 				lightGreen();
 			break;
 		case ERROR:
-			if(parPtr->sendNow)
+			if(parPtr->flags.sendNow)
 				blinkRed(BLINK_PERIOD,BLINK_PW);
-			else if(parPtr->configMode)
+			else if(parPtr->flags.configMode)
 				lightRed();
 			break;
 		default:
-			if(parPtr->configMode || parPtr->sendNow)
+			if(parPtr->flags.configMode || parPtr->flags.sendNow)
 			{
 				initLed();
 				lightGreen();
 			}
-			if(parPtr->sendNow)
+			if(parPtr->flags.sendNow)
 			{
 				blinkOnce(BLINK_PW);
 				os_timer_disarm(&ledTimer);

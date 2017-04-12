@@ -40,50 +40,50 @@ void ICACHE_FLASH_ATTR  sensor_timerfunc(void *arg)
 	int mesCount=0;
 	uint32_t new_offset=0;
 	uint32_t time=0;
-	params* currPar;
-	params* readPar;
+	Params* currPar;
+	Params* readPar;
 	readPar=readParams();
 	copyParams();
 	currPar=getCurrParPtr();
-	sendingInterval=currPar->sendingInterval;
+	sendingInterval=currPar->sensorData.sendingInterval;
 
     saveTemperature(SHT21_GetVal(GET_SHT_TEMPERATURE));
     saveHumidity(SHT21_GetVal(GET_SHT_HUMIDITY));
     saveOffsetTime(rtcGetUnixTime());
-    if(areTresholdsExceeded(getTemperature(),getHumidity()) && !currPar->SetupWifi)
+    if(areTresholdsExceeded(getTemperature(),getHumidity()) && !currPar->flags.setupWifi)
     {
     	ets_uart_printf("Tresholds Exceeded\r\n");
     	//currPar->sendNow=true;
-    	currPar->SetupWifi=true;
-    	currPar->sendingInterval=1;
-    	if(readPar->sleepTime_s > ALERT_MES_INTERVAL)
-    		currPar->sleepTime_s= ALERT_MES_INTERVAL;
+    	currPar->flags.setupWifi=true;
+    	currPar->sensorData.sendingInterval=1;
+    	if(readPar->sensorData.sleepTime_s > ALERT_MES_INTERVAL)
+    		currPar->sensorData.sleepTime_s= ALERT_MES_INTERVAL;
     	storeParams();
     	system_deep_sleep_set_option(RF_CALIBRATION);
     	system_deep_sleep_instant(100);
     }
-    mesCount=readMeasurementCount(false);
+    mesCount=readMeasurementCount(ALL);
    // if(mesCount<= MAX_MES_TOTAL) do nadpisywania wylaczone!
     	storeMeasurement();
 
-	if(readMeasurementCount(false)<sendingInterval-1)
+	if(readMeasurementCount(ALL)<sendingInterval-1)
 	{
-		if(readPar->SetupWifi !=false)
+		if(readPar->flags.setupWifi !=false)
 		{
 			copyParams();
-			currPar->SetupWifi=false;
+			currPar->flags.setupWifi=false;
 			storeParams();
 		}
 
 		fallAsleep(NO_RF_CALIBRATION);
 	}
 
-	else if(readMeasurementCount(false)==sendingInterval-1)
+	else if(readMeasurementCount(ALL)==sendingInterval-1)
 	{
-		if(readPar->SetupWifi != true)
+		if(readPar->flags.setupWifi != true)
 		{
 			copyParams();
-			currPar->SetupWifi=true;
+			currPar->flags.setupWifi=true;
 			storeParams();
 		}
 
@@ -92,7 +92,7 @@ void ICACHE_FLASH_ATTR  sensor_timerfunc(void *arg)
 	else if(!isStillSending())
 	{
 		saveVoltage(readAdc());
-		sendMeasurements(readMeasurementCount(false),sendingInterval);
+		sendMeasurements(readMeasurementCount(ALL),sendingInterval);
 	}
 
 
@@ -154,15 +154,15 @@ bool ICACHE_FLASH_ATTR write_user_register (uint8_t command_resolution)
 
 bool ICACHE_FLASH_ATTR areTresholdsExceeded(int16_t cTemp, uint16_t cHum)
 {
-	params* parameters = NULL;
+	Params* parameters = NULL;
 	parameters=readParams();
 	if(parameters)
 	{
-		if(cTemp > parameters->tempMaxTreshold || cTemp < parameters->tempMinTreshold)
+		if(cTemp > parameters->tresholds.tempMaxTreshold || cTemp < parameters->tresholds.tempMinTreshold)
 		{
 			return true;
 		}
-		if(cHum > parameters->humMaxTreshold || cHum < parameters->humMinTreshold)
+		if(cHum > parameters->tresholds.humMaxTreshold || cHum < parameters->tresholds.humMinTreshold)
 		{
 			return true;
 		}

@@ -14,7 +14,7 @@ uint16_t configActiveTime=0;
 void ICACHE_FLASH_ATTR setupWifi(const char* ssId, const char* password)
 {
 	struct station_config stationConfig;
-	params* readPar=readParams();
+	Params* readPar=readParams();
 
 	wifi_set_event_handler_cb(wifiEventHandler);
 	wifi_set_opmode_current(STATION_MODE);
@@ -141,11 +141,11 @@ void setConfig(bool Conf)
 
 void ICACHE_FLASH_ATTR emergentIntervalChange()
 {
-	params* par=readParams();
-	if(par->tresholdsExceeded && par->sleepTime_s > 60*20)
+	Params* par=readParams();
+	if(par->flags.tresholdsExceeded && par->sensorData.sleepTime_s > 60*20)
 	{
 		copyParams();
-		getCurrParPtr()->sendingInterval=60*20;
+		getCurrParPtr()->sensorData.sendingInterval=60*20;
 		storeParams();
 	}
 }
