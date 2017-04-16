@@ -33,8 +33,8 @@ void ICACHE_FLASH_ATTR user_init(void)
 
 	if(!readPar->flags.sendNow && !readPar->flags.configMode)
 		checkButton();
-	ets_uart_printf("Flash ID: %d\r\n", spi_flash_get_id());
-	ets_uart_printf("Sleep type: %d\r\n", wifi_fpm_get_sleep_type());
+	/*ets_uart_printf("Flash ID: %d\r\n", spi_flash_get_id());
+	ets_uart_printf("Sleep type: %d\r\n", wifi_fpm_get_sleep_type());*/
 	if(readParams()->flags.configMode==true)
 	{
 		setConfig(true);
@@ -42,7 +42,7 @@ void ICACHE_FLASH_ATTR user_init(void)
 		{
 			restartToRF();
 		}
-		signalizeStatus(NONE);
+		signalizeStatus(PENDING);
 
 	}
 	else
@@ -54,7 +54,7 @@ void ICACHE_FLASH_ATTR user_init(void)
 			{
 				restartToRF();
 			}
-			signalizeStatus(NONE);
+			signalizeStatus(PENDING);
 			copyParams();
 			getCurrParPtr()->sensorData.sendingInterval=1;
 			storeParams();
@@ -101,9 +101,9 @@ user_rf_cal_sector_set(void)
     return rf_cal_sec;
 }
 
-void user_rf_pre_init(void)
+void ICACHE_FLASH_ATTR user_rf_pre_init(void)
 {
-
+	system_set_os_print(0);
 }
 
 void ICACHE_FLASH_ATTR initDone()

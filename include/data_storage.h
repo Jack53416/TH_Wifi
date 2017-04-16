@@ -121,8 +121,10 @@ Metadata ICACHE_FLASH_ATTR readSectorMetadata (uint32_t sector);
 Measurement ICACHE_FLASH_ATTR readSectorMeasurement (uint32_t sector, uint16_t indx);
 void ICACHE_FLASH_ATTR readFromFlash(uint16 sector,uint32 indx,void* destination, uint32 size);
 
+static inline ICACHE_FLASH_ATTR uint32_t rotl32 ( uint32_t x, int8_t r );
+uint32_t ICACHE_FLASH_ATTR MurmurHash3_32 ( const void * key, int len, uint32_t seed);
 /*TO DO*/
-uint16_t ICACHE_FLASH_ATTR calculateHash();
+uint32_t ICACHE_FLASH_ATTR calculateHash();
 /*****************************/
 void storeParams();
 Params*  readParams();

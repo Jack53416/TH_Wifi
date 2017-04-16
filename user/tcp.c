@@ -376,7 +376,7 @@ void ICACHE_FLASH_ATTR sendMeasurements_cb(void* arg)
 			//delMeasurement(true);
 			os_timer_disarm(&sendingTimer);
 			if(readParams()->sensorData.sendingInterval != 1)
-				fallAsleep(NO_RF_CALIBRATION);
+				fallAsleep(RF_DISABLED);
 			else
 				fallAsleep(RF_CALIBRATION);
 		}
@@ -669,7 +669,7 @@ void ICACHE_FLASH_ATTR http_cb(char * response_body, int http_status, char * res
 	{
 		//ets_uart_printf("%s\n",response_body);
 			sendingSuccesfull=true;
-			signalizeStatus(GOOD);
+			signalizeStatus(OK);
 			if(ptrToSndData)
 			{
 				os_free(ptrToSndData);
@@ -689,7 +689,7 @@ void ICACHE_FLASH_ATTR http_cb(char * response_body, int http_status, char * res
 		{
 			sendingSuccesfull=false;
 			connErr++;
-			signalizeStatus(ERROR);
+			signalizeStatus(FAIL);
 			if(connErr>= TIMEOUT)
 			{
 				if(ptrToSndData)

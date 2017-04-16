@@ -50,7 +50,7 @@ static void ICACHE_FLASH_ATTR wifiGuardian(void *arg)
 	else if(retrysNr<MAX_RETRYS_IN_AWAKE)
 	{
 		retrysNr++;
-		signalizeStatus(ERROR);
+		signalizeStatus(FAIL);
 	}
 
 	if(retrysNr>MAX_RETRYS_IN_AWAKE)
@@ -80,7 +80,7 @@ void wifiEventHandler(System_Event_t* event)
 		event->event_info.disconnected.reason);
 #endif
 		wifi_err++;
-		signalizeStatus(ERROR);
+		signalizeStatus(FAIL);
 
 		if(wifi_err>TIMEOUT)
 		{
