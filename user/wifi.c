@@ -6,21 +6,39 @@
  */
 #include "wifi.h"
 #include "led.h"
+
+extern struct espconn conn1;
+extern esp_tcp tcp1;
+
 int wifi_err=0;
 uint8_t retrysNr=0;
 LOCAL os_timer_t retryTimer;
 bool CONFIG=false;
 uint16_t configActiveTime=0;
+
+/******************************************************************************
+ * FunctionName : setupWifi
+ * Description  : It setups the wifi connection by inputing the ssID and password
+ * 				  to the SDK defined structure. It also registers the handler function
+ * 				  for wifi events, attempts to connect to the access point, starts dhcp
+ * 				  and initializes wifiGuardian.
+ * Parameters   : ssId -- wifi network name
+ * 				  password -- wifi network password
+ * Returns      : none
+*******************************************************************************/
+
 void ICACHE_FLASH_ATTR setupWifi(const char* ssId, const char* password)
 {
 	struct station_config stationConfig;
-	params* readPar=readParams();
 
 	wifi_set_event_handler_cb(wifiEventHandler);
 	wifi_set_opmode_current(STATION_MODE);
+
 	if(wifi_station_dhcpc_status()!=DHCP_STOPPED)
 		wifi_station_dhcpc_stop();
+
 	wifi_station_disconnect();
+
 	strncpy(stationConfig.ssid,ssId ,32);/*"piproject"*/
 	strncpy(stationConfig.password,password , 64); /*"314Project"*/
 	wifi_station_set_config_current(&stationConfig);
@@ -31,9 +49,17 @@ void ICACHE_FLASH_ATTR setupWifi(const char* ssId, const char* password)
 	os_timer_disarm(&retryTimer);
 	os_timer_setfn(&retryTimer, (os_timer_func_t *)wifiGuardian, (void *)0);
 	os_timer_arm(&retryTimer, RETRY_DELAY, 1);
-
-
 }
+
+/******************************************************************************
+ * FunctionName : wifiGuardian
+ * Description  : Periodic function that checks the wifi connection status and
+ * 				  puts the device into sleep if wifi connection has been lost for
+ * 				  excessive amount of time
+ * Parameters   : arg = NULL
+ * Returns      : none
+*******************************************************************************/
+
 static void ICACHE_FLASH_ATTR wifiGuardian(void *arg)
 {
 	if(CONFIG)
@@ -47,10 +73,11 @@ static void ICACHE_FLASH_ATTR wifiGuardian(void *arg)
 	}
 	if(wifi_station_get_connect_status()==STATION_GOT_IP)
 		retrysNr=0;
+
 	else if(retrysNr<MAX_RETRYS_IN_AWAKE)
 	{
 		retrysNr++;
-		signalizeStatus(ERROR);
+		signalizeStatus(FAIL);
 	}
 
 	if(retrysNr>MAX_RETRYS_IN_AWAKE)
@@ -60,9 +87,19 @@ static void ICACHE_FLASH_ATTR wifiGuardian(void *arg)
 	}
 }
 
+/******************************************************************************
+ * FunctionName : wifiEventHandler
+ * Description  : Handler function for wifi related events
+ * Parameters   : event -- system wifi events
+ * Returns      : none
+*******************************************************************************/
 
-void wifiEventHandler(System_Event_t* event)
+void ICACHE_FLASH_ATTR wifiEventHandler(System_Event_t* event)
 {
+	struct ip_info ip;
+    char temp[30];
+    char* broad;
+
 	switch(event->event)
 	{
 	case EVENT_STAMODE_CONNECTED:
@@ -80,7 +117,7 @@ void wifiEventHandler(System_Event_t* event)
 		event->event_info.disconnected.reason);
 #endif
 		wifi_err++;
-		signalizeStatus(ERROR);
+		signalizeStatus(FAIL);
 
 		if(wifi_err>TIMEOUT)
 		{
@@ -93,12 +130,8 @@ void wifiEventHandler(System_Event_t* event)
 		ets_uart_printf("AUTHMODE_CHANGE...\r\n");
 #endif
 		break;
-	case EVENT_STAMODE_GOT_IP:; //empty statemnt bo standard C99 ech...
-
-		struct ip_info ip;
+	case EVENT_STAMODE_GOT_IP:
 		wifi_get_ip_info(STATION_IF, &ip);
-	    char temp[80];
-	    char* broad;
 #ifdef DEBUG
 		ets_uart_printf("Got IP! \r\n");
 	    os_sprintf(temp, "Station ip:" IPSTR "\r\n", IP2STR(&(ip.ip.addr)));
@@ -110,7 +143,7 @@ void wifiEventHandler(System_Event_t* event)
 	    if(CONFIG)
 	    {
 	    	broad=get_broadcast_address();
-	    	SetupTCP("0.0.0.0", TCP_PORT,&conn1,&tcp1);
+	    	setupTCP("0.0.0.0", TCP_PORT,&conn1,&tcp1);
 	    	os_sprintf(temp, "0x01" IPSTR "\n", IP2STR(&(ip.ip.addr)));
 	    	UDP_sendData(temp, strlen(temp),broad);
 	    	espconn_accept(&conn1);
@@ -134,18 +167,8 @@ void wifiEventHandler(System_Event_t* event)
 	}
 }
 
-void setConfig(bool Conf)
+
+void ICACHE_FLASH_ATTR setConfig(bool Conf)
 {
 	CONFIG=Conf;
-}
-
-void ICACHE_FLASH_ATTR emergentIntervalChange()
-{
-	params* par=readParams();
-	if(par->tresholdsExceeded && par->sleepTime_s > 60*20)
-	{
-		copyParams();
-		getCurrParPtr()->sendingInterval=60*20;
-		storeParams();
-	}
 }

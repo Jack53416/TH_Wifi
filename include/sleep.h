@@ -11,8 +11,10 @@
 #include "data_storage.h"
 #include "driver/rtc_i2c.h"
 typedef enum{
+	RF_DEFAULT=0,
 	RF_CALIBRATION=1,
-	NO_RF_CALIBRATION=4 // RF OFF actually
+	RF_NO_CALIBRATION=2,
+	RF_DISABLED=4 // RF OFF actually
 }modes;
 
 void ICACHE_FLASH_ATTR fallAsleep(modes wakupType);

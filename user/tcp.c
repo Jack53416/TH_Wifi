@@ -4,106 +4,95 @@
  *  Created on: 14.09.2016
  *      Author: Jacek
  */
-
-/*
- * To Do:
- * 3)Dopracowac odbior ip serwera
- * 4)Czysczenie kodu
- *
+/**
+ * File responsible for TCP communication and sending measurments to the server
  */
 #include "tcp.h"
 
 struct espconn conn1;
-struct espconn connOut;
-struct espconn* currentConnection;
 uint8_t connErr=0;
-uint8_t sendErr=0;
 esp_tcp tcp1;
-esp_tcp tcp2;
 os_timer_t sendingTimer;//Timer ktory odpowiada za wysylke badz za oczekiwanie na poprawne polaczenie tcp/wifi
-os_timer_t sendingTimer2;// za inne dane do wysylki
 int measurementsToSend=-1;
-bool connection_established=false;
 bool stillSending=false;
 bool sendingSuccesfull=false;
 char* ptrToSndData=NULL;
-uint16_t dataSize=0;
-uint16_t dataOffset=0;
 uint32_t recentDate=0;
 uint16_t batteryVoltage=0;
-void ICACHE_FLASH_ATTR SetupTCP(char* rIP, int rPort, struct espconn* connPtr,esp_tcp* tcpPtr )
+
+/******************************************************************************
+ * FunctionName : setupTCP
+ * Description  : Preapares the TCP connection without the http protocol with
+ * 				  local ip address
+ * Parameters   : rIP -- remote ip address (for local use only! no dns support)
+ * 				  rPort -- remote port
+ * 				  connPtr -- pointer to espconn structure which stores the tcpPtr
+ * 				  tcpPtr -- pointer to esp_tcp which stores the tcp connection
+ * 				  			settings
+ * Returns      : none
+*******************************************************************************/
+
+void ICACHE_FLASH_ATTR setupTCP(const char* rIP, int rPort, struct espconn* connPtr,esp_tcp* tcpPtr )
 {
-	char temp[50];
-	tcpPtr->remote_port=rPort;
 	uint32_t ip = ipaddr_addr(rIP);
-#ifdef DEBUG
-	os_sprintf(temp, "SERVER ip:" IPSTR "\r\n", IP2STR(&(ip)));
-	ets_uart_printf(temp);
-#endif
+	struct ip_info ipConfig;
+
+	tcpPtr->remote_port=rPort;
 	os_memcpy(tcpPtr->remote_ip, &ip, 4);
 	tcpPtr->local_port=TCP_PORT;//espconn_port();
-#ifdef DEBUG
-	ets_uart_printf("Port: %d \r\n",tcpPtr->local_port);
-#endif
-	struct ip_info ipConfig;
+
 	wifi_get_ip_info(STATION_IF,&ipConfig);
 	os_memcpy(tcpPtr->local_ip,&ipConfig.ip,4);
 
 	connPtr->type=	ESPCONN_TCP;
 	connPtr->state = ESPCONN_NONE;
 	connPtr->proto.tcp=tcpPtr;
-	espconn_regist_disconcb(connPtr,DisconnectCB);
-	espconn_regist_connectcb(connPtr,ConnectCB);
-	espconn_regist_recvcb(connPtr, RecvCB);
-	espconn_regist_reconcb(connPtr,ReconnectCB);
-	espconn_regist_sentcb(connPtr,SentCB);
+
+	espconn_regist_disconcb(connPtr,disconnectCB);
+	espconn_regist_connectcb(connPtr,connectCB);
+	espconn_regist_recvcb(connPtr, recvCB);
+	espconn_regist_reconcb(connPtr,reconnectCB);
+	espconn_regist_sentcb(connPtr,sentCB);
 }
 
+/******************************************************************************
+ * FunctionName : connectCB, reconnectCB, disconnectCb
+ * Description  : callback functions for events related to local TCP connection
+ * Parameters   : arg -- event related data
+ * Returns      : none
+*******************************************************************************/
 
-void ICACHE_FLASH_ATTR ConnectCB(void *arg )
+void ICACHE_FLASH_ATTR connectCB(void *arg )
 {
 	struct espconn *pespconn = arg;
-	currentConnection=pespconn;
-	sendingSuccesfull=false;
-	if(measurementsToSend>=0)
-	{
-		ptrToSndData=ToOneString(measurementsToSend, dataOffset);//ToSendFormat(readMeasurement(measurementsToSend));
-		espconn_sent(pespconn,ptrToSndData,strlen(ptrToSndData));
 
-	}
-	else if(ptrToSndData)
-	{
-		espconn_sent(pespconn,ptrToSndData,(HEAD_SIZE+dataSize));
-	}
-	os_delay_us(500000);
 }
 
-void ICACHE_FLASH_ATTR ReconnectCB(void* arg, sint8 err)
+void ICACHE_FLASH_ATTR reconnectCB(void* arg, sint8 err)
 {
-#ifdef DEBUG
-	ets_uart_printf("ReconnectCB\r\n");
-#endif
-	connection_established=false;
-	connErr++;
-
 
 }
-void ICACHE_FLASH_ATTR DisconnectCB(void *arg)
+void ICACHE_FLASH_ATTR disconnectCB(void *arg)
 {
-#ifdef DEBUG
-	ets_uart_printf("DisconnectCB\r\n");
-#endif
-	connection_established=false;
+
 }
 
-void ICACHE_FLASH_ATTR SentCB(void* arg)
+void ICACHE_FLASH_ATTR sentCB(void* arg)
 {
 	sendingSuccesfull=true;
-	ets_uart_printf("WYSLANO Z SUKCESEM\r\n");
-	sendErr=0;
 }
 
-void ICACHE_FLASH_ATTR RecvCB(void* arg, char* pData, unsigned short len)
+/******************************************************************************
+ * FunctionName : recvCB
+ * Description  : Handles the data received during local TCP connection.
+ * 				  Mainly used for config mode purposes
+ * Parameters   : arg -- pointer to pEspConn struct of current connection
+ * 				  pData -- pointer to received data
+ * 				  len -- length of received data
+ * Returns      : none
+*******************************************************************************/
+
+void ICACHE_FLASH_ATTR recvCB(void* arg, char* pData, unsigned short len)
 {
 	///Byly watpliwosci co tu sie dzieje to tlumacze:
 	// format danych otrzymywanych przez esp wyobrazam sobie jako naglowek+dane wlasciwe, na naglowek przyjalem 4
@@ -116,12 +105,25 @@ void ICACHE_FLASH_ATTR RecvCB(void* arg, char* pData, unsigned short len)
 	unsigned short rest=len;
 	while(rest>0)
 	{
-		rest=AnylyzeReceived(pEnd,&pEnd,rest,pEspConn);
+		rest=anylyzeReceived(pEnd,&pEnd,rest,pEspConn);
 	}
 
 }
 
-short ICACHE_FLASH_ATTR AnylyzeReceived(char* pRec, char**pEnd, unsigned short len,struct espconn *pEspConn)
+/******************************************************************************
+ * FunctionName : analyzeReceived
+ * Description  : General function for hanling console config mode. It breaks the received string
+ * 				  into n- number of smaller insturctions. Each instruction is separated with space
+ * 				  and comprises of header(0x+digit) and value. Ex.(0x156)
+ * Parameters   : pRec -- pointer to received data in string format
+ * 				  pEnd -- end pointer, stores the place where the function ended
+ * 				  		  after its iteration
+ * 				  len -- length of data string (pRec)
+ * 				  pEspConn -- pointer to esponn structure( for response puprposes)
+ * Returns      : remaining length of the received message to analyze
+*******************************************************************************/
+
+short ICACHE_FLASH_ATTR anylyzeReceived(char* pRec, char**pEnd, unsigned short len,struct espconn *pEspConn)
 {
     int i=0;
     char header[HEAD_SIZE];
@@ -141,7 +143,6 @@ short ICACHE_FLASH_ATTR AnylyzeReceived(char* pRec, char**pEnd, unsigned short l
 
 			if(pRec[i]==' ')
             {
-                //i++;
                 *pEnd=pRec+i+1;
                 break;
             }
@@ -161,13 +162,23 @@ short ICACHE_FLASH_ATTR AnylyzeReceived(char* pRec, char**pEnd, unsigned short l
 	ets_uart_printf("header: %s \r\ndata:%s\r\n",header,data);
 	ets_uart_printf("mode :%d \r\n",mode);
 #endif
-	ResolveMode(mode, data,pEspConn);
+	resolveMode(mode, data,pEspConn);
 	if(data)
 		os_free(data);
     return len-i;
 }
 
-bool ICACHE_FLASH_ATTR ResolveMode(short mode, char* data, struct espconn *pEspConn)
+/******************************************************************************
+ * FunctionName : resolveMode
+ * Description  : It resolves the header of each instruction and takes the action
+ * 				  accordingly
+ * Parameters   : mode -- header stripped from 0x indentifier
+ * 				  data -- value of the instruction
+ * 				  pEspConn -- pointer to connection settings
+ * Returns      : true on succesfull parameter update, false on failure
+*******************************************************************************/
+
+bool ICACHE_FLASH_ATTR resolveMode(short mode, char* data, struct espconn *pEspConn)
 {
 	//zwykly case dotyczacy co robic w zaleznosci od moda, nie potrzeba przesylac dlugosci char* data, bo jest to
 	//juz pelnoprawny string i ma na koncu \0
@@ -180,15 +191,6 @@ bool ICACHE_FLASH_ATTR ResolveMode(short mode, char* data, struct espconn *pEspC
 #ifdef DEBUG
 		ets_uart_printf("mode resolved: SERVER_IP \r\n");
 #endif
-		if(!data)
-			return false;
-		if(isValidIp(data))
-		{
-			copyParams();
-			strcpy(getCurrParPtr()->serverIp,data);
-			storeParams();
-
-		}
 #ifdef DEBUG
 		else
 
@@ -202,7 +204,7 @@ bool ICACHE_FLASH_ATTR ResolveMode(short mode, char* data, struct espconn *pEspC
 		if(intPar>0 && intPar < MAX_SEND_INT)
 		{
 			copyParams();
-			getCurrParPtr()->sendingInterval=intPar;
+			getCurrParPtr()->sensorData.sendingInterval=intPar;
 			storeParams();
 			if(pEspConn)
 				espconn_sent(pEspConn,"Interval OK\r\n",13);
@@ -215,7 +217,7 @@ bool ICACHE_FLASH_ATTR ResolveMode(short mode, char* data, struct espconn *pEspC
 		if(intPar>1024)
 		{
 			copyParams();
-			getCurrParPtr()->remoteTcpPort=intPar;
+			getCurrParPtr()->connectionData.remoteTcpPort=intPar;
 			storeParams();
 			if(pEspConn)
 							espconn_sent(pEspConn,"PORT OK\r\n",9);
@@ -225,7 +227,7 @@ bool ICACHE_FLASH_ATTR ResolveMode(short mode, char* data, struct espconn *pEspC
 		if(!data)
 			return false;
 		copyParams();
-		strncpy(getCurrParPtr()->ssID,data,32);
+		strncpy(getCurrParPtr()->connectionData.ssID,data,32);
 		//strcpy(getCurrParPtr()->ssID,data);
 		storeParams();
 		if(pEspConn)
@@ -246,7 +248,7 @@ bool ICACHE_FLASH_ATTR ResolveMode(short mode, char* data, struct espconn *pEspC
 		if(intPar>0 && intPar<MAX_SLEEP_TIME_S)
 		{
 			copyParams();
-			getCurrParPtr()->sleepTime_s=intPar;
+			getCurrParPtr()->sensorData.sleepTime_s=intPar;
 			storeParams();
 			if(pEspConn)
 							espconn_sent(pEspConn,"SLEEP TIME OK\r\n",15);
@@ -256,7 +258,7 @@ bool ICACHE_FLASH_ATTR ResolveMode(short mode, char* data, struct espconn *pEspC
 		if(!data)
 			return false;
 		copyParams();
-		strncpy(getCurrParPtr()->pass,data,64);
+		strncpy(getCurrParPtr()->connectionData.pass,data,64);
 		//strcpy(getCurrParPtr()->pass,data);
 		storeParams();
 		if(pEspConn)
@@ -266,7 +268,7 @@ bool ICACHE_FLASH_ATTR ResolveMode(short mode, char* data, struct espconn *pEspC
 		if(!data)
 			return false;
 		copyParams();
-		strncpy(getCurrParPtr()->ServerAddress,data,64);
+		strncpy(getCurrParPtr()->connectionData.ServerAddress,data,64);
 		storeParams();
 		if(pEspConn)
 						espconn_sent(pEspConn,"URL OK\r\n",8);
@@ -275,23 +277,23 @@ bool ICACHE_FLASH_ATTR ResolveMode(short mode, char* data, struct espconn *pEspC
 		if(!data)
 			return false;
 		copyParams();
-		strncpy(getCurrParPtr()->SensorID,data,64);
+		strncpy(getCurrParPtr()->sensorData.sensorID,data,64);
 		storeParams();
 		if(pEspConn)
 						espconn_sent(pEspConn,"SENSOR ID OK\r\n",14);
 		break;
 	case PARAMS_REQ:
-		tmp = ParamsToString();
+		tmp = paramsToString();
 		espconn_sent(pEspConn,tmp,strlen(tmp));
 		if(tmp)
 			os_free(tmp);
 		break;
 	case CONFIG_END:
-		if(readParams()->configMode || readParams()->sendNow)
+		if(readParams()->flags.configMode || readParams()->flags.sendNow)
 			{
 				copyParams();
-				getCurrParPtr()->sendNow=false;
-				getCurrParPtr()->configMode=false;
+				getCurrParPtr()->flags.sendNow=false;
+				getCurrParPtr()->flags.configMode=false;
 				storeParams();
 			}
 		system_deep_sleep(100);
@@ -309,25 +311,16 @@ bool ICACHE_FLASH_ATTR ResolveMode(short mode, char* data, struct espconn *pEspC
 	}
 	return true;
 }
-bool ICACHE_FLASH_ATTR isValidIp(char* ipString)
-{
-	// Sprawdzam czy ip jest poprawne na zasadzie czy zawiera tylko  cyfry i spacje i czy nie jest za dlugie
-	int i=0;
-	if(!ipString)
-		return false;
-	while(ipString[i]!='\0')
-	{
-		if((ipString[i]<'0' || ipString[i]>'9') && ipString[i]!='.')
-			return false;
-		i++;
-		if(i>15)
-			return false;
-	}
-	return true;
-}
 
-
-void ICACHE_FLASH_ATTR sendMeasurements(int totalMeasurements, int interval)
+/******************************************************************************
+ * FunctionName : sendMeasurements
+ * Description  : Arms the sending timer if total measurments stored exceeds set
+ * 				  interval
+ * Parameters   : totalMeasurements -- number of measurements stored
+ * 				  interval -- set interval
+ * Returns      : none
+*******************************************************************************/
+void ICACHE_FLASH_ATTR sendMeasurements(int totalMeasurements, int interval) //po co przekazywac skoro mozna zczytac bezposrednio?
 {
 	measurementsToSend=totalMeasurements;
 	ets_uart_printf("Measurements To Send:%d\r\n",measurementsToSend);
@@ -341,14 +334,20 @@ void ICACHE_FLASH_ATTR sendMeasurements(int totalMeasurements, int interval)
 
 }
 
+/******************************************************************************
+ * FunctionName : sendMeasurements_cb
+ * Description  : Actual function that realizes the sending procedure. It chunks the
+ * 				  data and initializes sending operations untill all data are sent.
+ * 				  After each sucessfully sent chunk it is deleted and when there are no
+ * 				  measurments to send it puts the device into sleep mode.
+ * Parameters   : none (arg = NULL)
+ * Returns      : none
+*******************************************************************************/
+
 void ICACHE_FLASH_ATTR sendMeasurements_cb(void* arg)
 {
-	//char* tmp;
-	//os_timer_disarm(&sendingTimer);
-	//os_timer_arm(&sendingTimer, SENDING_INTERVAL, 1);
 	if(checkWifi(&sendingTimer))
 	{
-		//EstablishConnection(&sendingTimer);
 		if(sendingSuccesfull) //jesli udalo sie wyslac poprzedni pakiet przechodzimy dalej, jak nie to poprawka
 			{
 				sendingSuccesfull=false;
@@ -356,36 +355,32 @@ void ICACHE_FLASH_ATTR sendMeasurements_cb(void* arg)
 			}
 		else if(stillSending==false && !sendingSuccesfull)
 		{
-			ets_uart_printf("SERWER ADRESSS: %s\r\n", readParams()->ServerAddress);
+			ets_uart_printf("SERWER ADRESSS: %s\r\n", readParams()->connectionData.ServerAddress);
 			stillSending=true;
 			if(measurementsToSend > SEND_CHUNK)
 			{
 				if(!ptrToSndData)
 				{
-					ptrToSndData=ToOneString(SEND_CHUNK,dataOffset);
-					dataOffset+=SEND_CHUNK;
+					ptrToSndData=toOneString(SEND_CHUNK);
 				}
 			}
 			else
 			{
 				if(!ptrToSndData)
-					ptrToSndData=ToOneString(measurementsToSend,dataOffset);
+					ptrToSndData=toOneString(measurementsToSend);
 			}
-			http_post(readParams()->ServerAddress,&ptrToSndData,"Accept: application/json\r\nContent-Type: application/json\r\n", http_cb);
+			http_post(readParams()->connectionData.ServerAddress,&ptrToSndData,"Accept: application/json\r\nContent-Type: application/json\r\n", http_cb);
 
 		}
 
-		if(measurementsToSend<0) //jak nie ma juz nic do wyslania wychodzimy z timera
+		if(measurementsToSend <= 0) //jak nie ma juz nic do wyslania wychodzimy z timera
 		{
-			//espconn_disconnect(&connOut);
-			//espconn_delete(&connOut);
 			storeDate(recentDate);
-			time_t a= recentDate;
-			rtcSaveUnixTime(&a);
-			//delMeasurement(true);
+			rtcSaveUnixTime((time_t *)&recentDate);
+
 			os_timer_disarm(&sendingTimer);
-			if(readParams()->sendingInterval != 1)
-				fallAsleep(NO_RF_CALIBRATION);
+			if(readParams()->sensorData.sendingInterval != 1)
+				fallAsleep(RF_DISABLED);
 			else
 				fallAsleep(RF_CALIBRATION);
 		}
@@ -398,15 +393,24 @@ bool ICACHE_FLASH_ATTR isStillSending()
 	return stillSending;
 }
 
-char* ICACHE_FLASH_ATTR ToSendFormat(measurement* data, bool IsLast)
+/******************************************************************************
+ * FunctionName : toSendFormat
+ * Description  : Wrapps the one measurement instance into JSON array
+ * Parameters   : data -- measurment to wrapp into JSON string
+ * 				  isLast -- specified if the measurment is last in the JSON array(
+ * 							JSON format requires proper array ending)
+ * Returns      : measurement wrapped into specified JSON string
+*******************************************************************************/
+
+char* ICACHE_FLASH_ATTR toSendFormat(Measurement* data, bool IsLast)
 {
 	char* result=NULL;
-	uint32_t offset_s=data->offset_time;
+	uint32_t timestamp=data->timestamp;
 
 	result=(char*)os_malloc(MES_LENGTH+1);
 	if(result)
 	{
-		os_sprintf(result,MES_VAL_TEMPLATE,data->temperature,data->humidity,offset_s);
+		os_sprintf(result,MES_VAL_TEMPLATE,data->temperature,data->humidity,timestamp);
 
 	if(IsLast)
         result[MES_LENGTH]=']';
@@ -417,14 +421,25 @@ char* ICACHE_FLASH_ATTR ToSendFormat(measurement* data, bool IsLast)
 	return result;
 }
 
-char* ICACHE_FLASH_ATTR ToOneString(int measurementCount, uint16_t offset)
+/******************************************************************************
+ * FunctionName : toOneString
+ * Description  : Computes whole JSON string with all measurements, MAC address and
+ * 				  battery voltage
+ * Parameters   : measurementCount
+ * Returns      : full JSON response, containing specified number of measurements,
+ * 				  sensor MAC address and battery voltage
+*******************************************************************************/
+
+char* ICACHE_FLASH_ATTR toOneString(int measurementCount)
 {
 	int i;
 	char macAddr[6];
 	char macStr[sizeof(MAC)+1];
-	//measurementCount++;
+
 	uint16_t rSize=BASIC_LENGTH+(MES_LENGTH+1)*(measurementCount)+3;
+
 	ets_uart_printf("MEs count %d, rSize %d bas len %d mes len %d\r\n",measurementCount,rSize,BASIC_LENGTH,MES_LENGTH);
+
 	char* result= (char*)os_malloc(rSize+1);
 	char* tmp=NULL;
 	if(result)
@@ -435,12 +450,11 @@ char* ICACHE_FLASH_ATTR ToOneString(int measurementCount, uint16_t offset)
 		for(i=0;i<measurementCount;i++)
 		{
 		    if(i!= measurementCount-1)
-                tmp=ToSendFormat(readMeasurement(i),false);
+                tmp=toSendFormat(readMeasurement(i),false);
             else
-            	tmp=ToSendFormat(readMeasurement(i),true);
+            	tmp=toSendFormat(readMeasurement(i),true);
 			if(tmp)
 			{
-				//strncat(result,tmp,MES_LENGTH+1);
 				os_memcpy(result+BASIC_LENGTH+i*(MES_LENGTH+1),tmp,MES_LENGTH+1);
 				os_free(tmp);
 			}
@@ -456,17 +470,32 @@ char* ICACHE_FLASH_ATTR ToOneString(int measurementCount, uint16_t offset)
 	return result;
 }
 
-char* ICACHE_FLASH_ATTR ParamsToString()
+/******************************************************************************
+ * FunctionName : paramsToString
+ * Description  : Computes JSON string containing all stored parameters
+ * Parameters   : none
+ * Returns      : JSON string containg all crucial parameters that are stored in
+ * 				  flash memory
+*******************************************************************************/
+
+char* ICACHE_FLASH_ATTR paramsToString()
 {
     char* result = NULL;
     int len;
-    params* readPar= readParams();
-    uint16_t rSize=strlen(PAR_TEMPLATE)+PAR_VAL_LENGTH+strlen(readPar->pass)+strlen(readPar->SensorID)+strlen(readPar->ServerAddress)+strlen(readPar->ssID)+ 15+3;
+    Params* readPar= readParams();
+    uint16_t rSize=strlen(PAR_TEMPLATE)+PAR_VAL_LENGTH+strlen(readPar->connectionData.pass) +
+    		strlen(readPar->sensorData.sensorID)+strlen(readPar->connectionData.ServerAddress) +
+			strlen(readPar->connectionData.ssID)+ 15+3;
+
     result= (char*) os_malloc(rSize);
+
     if(!result)
     	return NULL;
-    os_sprintf(result,"%s" PAR_VALUE_TEMPLATE,PAR_TEMPLATE,readPar->ServerAddress,readPar->sendingInterval,readPar->remoteTcpPort,readPar->sleepTime_s,
-               readPar->ssID,readPar->pass,readPar->SensorID);
+    os_sprintf(result,"%s" PAR_VALUE_TEMPLATE,PAR_TEMPLATE,readPar->connectionData.ServerAddress,
+    		readPar->sensorData.sendingInterval,readPar->connectionData.remoteTcpPort,
+			readPar->sensorData.sleepTime_s, readPar->connectionData.ssID,readPar->connectionData.pass,
+			readPar->sensorData.sensorID);
+
     len=strlen(result);
     result[len]='}';
     result[len+1]='\r';
@@ -478,7 +507,13 @@ char* ICACHE_FLASH_ATTR ParamsToString()
     return result;
 }
 
-/*Proptotyp*/
+/******************************************************************************
+ * FunctionName : checkWifi
+ * Description  : REWORK NEEDED !
+ * Parameters   : timer --
+ * Returns      : true if WiFi connection is established, false otherwise
+*******************************************************************************/
+
 bool ICACHE_FLASH_ATTR checkWifi(os_timer_t* timer)
 {
 	if(wifi_station_get_connect_status()!=STATION_GOT_IP)
@@ -494,74 +529,41 @@ bool ICACHE_FLASH_ATTR checkWifi(os_timer_t* timer)
 	return true;
 }
 
-void ICACHE_FLASH_ATTR EstablishConnection(os_timer_t* timer)
+/******************************************************************************
+ * FunctionName : searchForNewParams
+ * Description  : checks if the parameters values specified in the argument structure
+ * 				  are different than those stored in flash memory
+ * Parameters   : newPar -- parameters to be checked
+ * Returns      : true if specified parameters are different than stored ones,
+ * 				  false otherwise
+*******************************************************************************/
+
+bool ICACHE_FLASH_ATTR searchForNewParams(Params* newPar)
 {
-		if(!connection_established) //Jesli juz jest polaczenie to po prostu wyslij//
-		{
-			sendErr=0;
-			if(espconn_connect(&connOut)!=0)
-			{
-				os_timer_disarm(timer);
-				os_timer_arm(timer,WIFI_TIMEOUT_INTERVAL,1); //Jak cos nie zadziala poczekaj 5 razy i odpusc
-				connErr++;
-#ifdef DEBUG
-				ets_uart_printf("Espconn_connect error! connErr:%d\r\n",connErr);
-#endif
-			}
-			else{connection_established=true;}
-
-			if(connErr>TIMEOUT)
-			{
-				os_timer_disarm(timer);
-				fallAsleep(RF_CALIBRATION);
-			}
-		}
-
-}
-
-void ICACHE_FLASH_ATTR SendData(enum RX_INFOS mode, char* data, uint16_t len)
-{
-	ptrToSndData=(char*)os_malloc(len*sizeof(char));
-	dataSize=len;
-	os_sprintf(ptrToSndData,"%d%s\n",mode,data);
-	os_timer_disarm(&sendingTimer2);
-	os_timer_setfn(&sendingTimer2, (os_timer_func_t *)SendData_cb, (void *)0);
-	os_timer_arm(&sendingTimer2, SENDING_INTERVAL, 0);
-
-}
-void ICACHE_FLASH_ATTR SendData_cb(void* arg)
-{
-	checkWifi(&sendingTimer2);
-	EstablishConnection(&sendingTimer2);
-	if(sendingSuccesfull)
-	{
-		if(ptrToSndData)
-		{
-			os_free(ptrToSndData);
-			sendingSuccesfull=false;
-			ptrToSndData=NULL;
-			dataSize=0;
-		}
-	}
-}
-
-bool ICACHE_FLASH_ATTR searchForNewParams(params* newPar)
-{
-	params* oldPar=readParams();
-	if(oldPar->sendingInterval != newPar->sendingInterval ||
-		oldPar->humMaxTreshold != newPar->humMaxTreshold ||
-		oldPar->humMinTreshold != newPar->humMinTreshold ||
-		oldPar->tempMaxTreshold != newPar->tempMaxTreshold ||
-		oldPar->tempMinTreshold != newPar->tempMinTreshold ||
-		oldPar->sleepTime_s != newPar->sleepTime_s)
+	Params* oldPar=readParams();
+	if(oldPar->sensorData.sendingInterval != newPar->sensorData.sendingInterval ||
+		oldPar->tresholds.humMaxTreshold != newPar->tresholds.humMaxTreshold ||
+		oldPar->tresholds.humMinTreshold != newPar->tresholds.humMinTreshold ||
+		oldPar->tresholds.tempMaxTreshold != newPar->tresholds.tempMaxTreshold ||
+		oldPar->tresholds.tempMinTreshold != newPar->tresholds.tempMinTreshold ||
+		oldPar->sensorData.sleepTime_s != newPar->sensorData.sleepTime_s)
 	{
 		return true;
 	}
-	if(strcmp(oldPar->SensorID, newPar->SensorID) != 0)
+	if(strcmp(oldPar->sensorData.sensorID, newPar->sensorData.sensorID) != 0)
 		return true;
 
 	return false;
 }
+
+/******************************************************************************
+ * FunctionName : jsoneq
+ * Description  : Compares the specified strings in JSON structure with given keys
+ * Parameters   : json -- Original JSON string that is parsed
+ * 				  tok -- token table(token is a word in JSON string)
+ * 				  s -- searched key
+ * Returns      : 0 if key was found, -1 otherwise
+*******************************************************************************/
 
 static int ICACHE_FLASH_ATTR jsoneq(const char *json, jsmntok_t *tok, const char *s) {
 	if (tok->type == JSMN_STRING && (int) strlen(s) == tok->end - tok->start &&
@@ -571,12 +573,20 @@ static int ICACHE_FLASH_ATTR jsoneq(const char *json, jsmntok_t *tok, const char
 	return -1;
 }
 
+/******************************************************************************
+ * FunctionName : parseAnswer
+ * Description  : parses the http response from the server
+ * Parameters   : dataString -- server response
+ * 				  size -- size of the response
+ * Returns      : true if JSON structure was semantically correct, false otherwise
+*******************************************************************************/
+
 bool ICACHE_FLASH_ATTR  parseAnswer(char* dataString, int size)
 {
     int jSize,i;
 	jsmn_parser p;
 	jsmntok_t t[20];
-	params* parPtr=NULL;
+	Params* parPtr=NULL;
 	uint32_t temp;
     jsmn_init(&p);
     jSize = jsmn_parse(&p, dataString, size, t, sizeof(t)/sizeof(t[0]));
@@ -615,46 +625,46 @@ bool ICACHE_FLASH_ATTR  parseAnswer(char* dataString, int size)
         }
         else if (jsoneq(dataString, &t[i], "name") == 0)
         {
-            strncpy(parPtr->SensorID,dataString + t[i+1].start,t[i+1].end-t[i+1].start);
-            parPtr->SensorID[t[i+1].end-t[i+1].start]='\0';
-            ets_uart_printf("Sensor ID:%s\n",parPtr->SensorID);
+            strncpy(parPtr->sensorData.sensorID,dataString + t[i+1].start,t[i+1].end-t[i+1].start);
+            parPtr->sensorData.sensorID[t[i+1].end-t[i+1].start]='\0';
+            ets_uart_printf("Sensor ID:%s\n",parPtr->sensorData.sensorID);
 			i++;
 		}
         else if (jsoneq(dataString, &t[i], "sendingInterval") == 0)
         {
             temp = strtol(dataString + t[i+1].start,NULL,10);
             if(temp <= MAX_SEND_INT)
-            	parPtr->sendingInterval=temp;
-            ets_uart_printf("Sending interval :%d\n",parPtr->sendingInterval);
+            	parPtr->sensorData.sendingInterval=temp;
+            ets_uart_printf("Sending interval :%d\n",parPtr->sensorData.sendingInterval);
 			i++;
         }
         else if (jsoneq(dataString, &t[i], "measurementInterval") == 0)
         {
             temp=strtol(dataString + t[i+1].start,NULL,10);
             if(temp <= MAX_SLEEP_TIME_S)
-            	parPtr->sleepTime_s=temp;
-            ets_uart_printf("sleep Time: %d\n",parPtr->sleepTime_s);
+            	parPtr->sensorData.sleepTime_s=temp;
+            ets_uart_printf("sleep Time: %d\n",parPtr->sensorData.sleepTime_s);
 			i++;
 
         }
         else if(jsoneq(dataString,&t[i], "tMaxTreshold")==0)
         {
-        	parPtr->tempMaxTreshold=strtol(dataString+t[i+1].start,NULL,10);
+        	parPtr->tresholds.tempMaxTreshold=strtol(dataString+t[i+1].start,NULL,10);
         	i++;
         }
         else if(jsoneq(dataString,&t[i], "tMinTreshold")==0)
 		{
-			parPtr->tempMinTreshold=strtol(dataString+t[i+1].start,NULL,10);
+			parPtr->tresholds.tempMinTreshold=strtol(dataString+t[i+1].start,NULL,10);
 			i++;
 		}
         else if(jsoneq(dataString,&t[i], "hMaxTreshold")==0)
 		{
-			parPtr->humMaxTreshold=strtol(dataString+t[i+1].start,NULL,10);
+			parPtr->tresholds.humMaxTreshold=strtol(dataString+t[i+1].start,NULL,10);
 			i++;
 		}
         else if(jsoneq(dataString,&t[i], "tMaxTreshold")==0)
 		{
-			parPtr->humMinTreshold=strtol(dataString+t[i+1].start,NULL,10);
+			parPtr->tresholds.humMinTreshold=strtol(dataString+t[i+1].start,NULL,10);
 			i++;
 		}
     }
@@ -665,13 +675,24 @@ bool ICACHE_FLASH_ATTR  parseAnswer(char* dataString, int size)
     return true;
 }
 
+/******************************************************************************
+ * FunctionName : http_cb
+ * Description  : HTTP callback function it handles the received response for the HTTP
+ * 				  request
+ * Parameters   : response_body -- response text
+ * 				  http_status -- overall http status sent with the response
+ * 				  response_headers -- HTTP headers of the response
+ * 				  body_size -- size of the response
+ * Returns      : none
+*******************************************************************************/
+
 void ICACHE_FLASH_ATTR http_cb(char * response_body, int http_status, char * response_headers, int body_size)
 {
 	if (http_status != HTTP_STATUS_GENERIC_ERROR)
 	{
 		//ets_uart_printf("%s\n",response_body);
 			sendingSuccesfull=true;
-			signalizeStatus(GOOD);
+			signalizeStatus(OK);
 			if(ptrToSndData)
 			{
 				os_free(ptrToSndData);
@@ -685,13 +706,13 @@ void ICACHE_FLASH_ATTR http_cb(char * response_body, int http_status, char * res
 		measurementsToSend -= SEND_CHUNK;
 		deleteMeasurements(RTC_BLOCK_CHUNK);
 		ets_uart_printf("deleted one chunk! now on RTC :%d and in total :%d\r\n",
-				readMeasurementCount(true), readMeasurementCount(false));
+				readMeasurementCount(ONLY_RTC), readMeasurementCount(ALL));
 	}
 		else
 		{
 			sendingSuccesfull=false;
 			connErr++;
-			signalizeStatus(ERROR);
+			signalizeStatus(FAIL);
 			if(connErr>= TIMEOUT)
 			{
 				if(ptrToSndData)
@@ -707,7 +728,6 @@ void ICACHE_FLASH_ATTR http_cb(char * response_body, int http_status, char * res
 
 
 }
-
 
 void ICACHE_FLASH_ATTR saveVoltage(uint16_t voltage)
 {

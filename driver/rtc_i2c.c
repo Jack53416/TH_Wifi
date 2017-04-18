@@ -7,6 +7,13 @@
 
 #include "driver/rtc_i2c.h"
 
+/******************************************************************************
+ * FunctionName : rtc_init
+ * Description  : Initializes the RTC on first power on
+ * Parameters   : none
+ * Returns      : true on success, false on failure
+*******************************************************************************/
+
 bool ICACHE_FLASH_ATTR rtc_init()
 {
 	i2c_start();
@@ -26,6 +33,14 @@ bool ICACHE_FLASH_ATTR rtc_init()
 
 	return true;
 }
+
+/******************************************************************************
+ * FunctionName : rtcSetTime
+ * Description  : feeds the specified time to the RTC module
+ * Parameters   : timeInfo -- desired time to be written
+ * Returns      : true on success, false on failure
+*******************************************************************************/
+
 bool ICACHE_FLASH_ATTR rtcSetTime(struct tm* timeInfo)
 {
 	i2c_start();
@@ -62,6 +77,14 @@ bool ICACHE_FLASH_ATTR rtcSetTime(struct tm* timeInfo)
 	i2c_stop();
 	return true;
 }
+
+/******************************************************************************
+ * FunctionName : rtcGetTime
+ * Description  : gets the current time from the RTC module
+ * Parameters   : timePtr -- pointer to tm struct where actual time will be stored
+ * Returns      : true on success, false on failure
+*******************************************************************************/
+
 bool ICACHE_FLASH_ATTR rtcGetTime(struct tm* timePtr)
 {
 	uint8_t tmp=0;
@@ -120,6 +143,13 @@ bool ICACHE_FLASH_ATTR rtcGetTime(struct tm* timePtr)
 	return true;
 }
 
+/******************************************************************************
+ * FunctionName : waitForAck
+ * Description  : waits for acknowledge response from RTC module
+ * Parameters   : none
+ * Returns      : true on ACK, false on failure
+*******************************************************************************/
+
 bool ICACHE_FLASH_ATTR waitForAck()
 {
 	  if (!i2c_check_ack())
@@ -130,15 +160,36 @@ bool ICACHE_FLASH_ATTR waitForAck()
 	  return true;
 }
 
+/******************************************************************************
+ * FunctionName : bcdToDec
+ * Description  : Converts specified value from bcd format to decimal
+ * Parameters   : val -- bcd value for conversion
+ * Returns      : decimal value
+*******************************************************************************/
+
 uint8_t ICACHE_FLASH_ATTR bcdToDec(uint8_t val)
 {
   return ( (val/16*10) + (val%16) );
 }
 
+/******************************************************************************
+ * FunctionName : decToBcd
+ * Description  : Converts specified value from decimal to bcd format
+ * Parameters   : val -- decimal value for conversion
+ * Returns      : Bcd format value
+*******************************************************************************/
+
 uint8_t ICACHE_FLASH_ATTR decToBcd(uint8_t val)
 {
   return ( (val/10*16) + (val%10) );
 }
+
+/******************************************************************************
+ * FunctionName : rtcGetUnixTime
+ * Description  : gets the actual time from the RTC module in unix format
+ * Parameters   : none
+ * Returns      : actual unix time(according to RTC)
+*******************************************************************************/
 
 time_t ICACHE_FLASH_ATTR rtcGetUnixTime()
 {
@@ -153,7 +204,15 @@ time_t ICACHE_FLASH_ATTR rtcGetUnixTime()
 	return unix;
 }
 
-bool ICACHE_FLASH_ATTR rtcSaveUnixTime(time_t* rawTime)
+/******************************************************************************
+ * FunctionName : rtcSaveUnixTime
+ * Description  : Feeds the RTC with desired time in unix format
+ * Parameters   : rawTime -- pointer to desired unix time that is going to be
+ * 				  			 stored
+ * Returns      : true on success, false on failure
+*******************************************************************************/
+
+bool ICACHE_FLASH_ATTR rtcSaveUnixTime(const time_t* rawTime)
 {
 	struct tm * ptm;
 	ptm = gmtime (rawTime);
@@ -168,6 +227,14 @@ bool ICACHE_FLASH_ATTR rtcSaveUnixTime(time_t* rawTime)
 
 }
 
+/******************************************************************************
+ * FunctionName : rtcSetTimer
+ * Description  : sets the timer functionality of RTC for a specified time. After
+ * 				  specified time RTC will produce square pulse. See PCF documentation
+ * 				  for more details
+ * Parameters   : time_m -- timer time in minutes
+ * Returns      : true on success, false on failure
+*******************************************************************************/
 
 bool ICACHE_FLASH_ATTR rtcSetTimer(uint8_t time_m)
 {
@@ -203,6 +270,13 @@ bool ICACHE_FLASH_ATTR rtcSetTimer(uint8_t time_m)
 
 	return true;
 }
+
+/******************************************************************************
+ * FunctionName : rtcDisableTimer
+ * Description  : disables RTC timer functionality
+ * Parameters   : none
+ * Returns      : true on success, false on failure
+*******************************************************************************/
 
 bool ICACHE_FLASH_ATTR rtcDisableTimer()
 {

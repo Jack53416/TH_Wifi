@@ -15,15 +15,11 @@
 #include "tcp.h"
 #include "sleep.h"
 
-extern struct espconn conn1;
-extern esp_tcp tcp1;
-
 void ICACHE_FLASH_ATTR setupWifi(const char* ssId, const char* password);
 void ICACHE_FLASH_ATTR wifiEventHandler(System_Event_t* event);
 static void ICACHE_FLASH_ATTR wifiGuardian(void *arg);
 
-void setConfig(bool Conf);
-void ICACHE_FLASH_ATTR emergentIntervalChange();
+void ICACHE_FLASH_ATTR setConfig(bool Conf);
 
 
 #endif /* INCLUDE_WIFI_H_ */

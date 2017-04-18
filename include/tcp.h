@@ -33,32 +33,28 @@
 #define MAC "5c:cf:7f:0f:59:28"
 
 
-void ICACHE_FLASH_ATTR SetupTCP(char* rIP, int rPort,struct espconn* connPtr,esp_tcp* tcpPtr);
-void ICACHE_FLASH_ATTR ConnectCB(void *arg );
-void ICACHE_FLASH_ATTR ReconnectCB(void* arg, sint8 err);
-void ICACHE_FLASH_ATTR DisconnectCB(void* arg);
-void ICACHE_FLASH_ATTR RecvCB(void* arg, char* pData, unsigned short len);
-void ICACHE_FLASH_ATTR SentCB(void* arg);
+void ICACHE_FLASH_ATTR setupTCP(const char* rIP, int rPort,struct espconn* connPtr,esp_tcp* tcpPtr);
+void ICACHE_FLASH_ATTR connectCB(void *arg );
+void ICACHE_FLASH_ATTR reconnectCB(void* arg, sint8 err);
+void ICACHE_FLASH_ATTR disconnectCB(void* arg);
+void ICACHE_FLASH_ATTR recvCB(void* arg, char* pData, unsigned short len);
+void ICACHE_FLASH_ATTR sentCB(void* arg);
 
-bool ICACHE_FLASH_ATTR ResolveMode(short mode, char* data, struct espconn *pEspConn);
-short ICACHE_FLASH_ATTR AnylyzeReceived(char* pRec, char**pEnd, unsigned short len,struct espconn *pEspConn);
-bool ICACHE_FLASH_ATTR isValidIp(char* ipString);
+bool ICACHE_FLASH_ATTR resolveMode(short mode, char* data, struct espconn *pEspConn);
+short ICACHE_FLASH_ATTR anylyzeReceived( char* pRec, char**pEnd, unsigned short len,struct espconn *pEspConn);
 
 void ICACHE_FLASH_ATTR sendMeasurements(int totalMeasurements, int interval);
 void ICACHE_FLASH_ATTR sendMeasurements_cb(void* arg);
 bool ICACHE_FLASH_ATTR isStillSending();
-char* ICACHE_FLASH_ATTR ToSendFormat(measurement* data, bool IsLast);
-char* ICACHE_FLASH_ATTR ToOneString(int measurementCount, uint16_t offset);
-char* ICACHE_FLASH_ATTR ParamsToString();
+char* ICACHE_FLASH_ATTR toSendFormat(Measurement* data, bool IsLast);
+char* ICACHE_FLASH_ATTR toOneString(int measurementCount);
+char* ICACHE_FLASH_ATTR paramsToString();
 bool ICACHE_FLASH_ATTR  parseAnswer(char* dataString, int size);
 static int ICACHE_FLASH_ATTR jsoneq(const char *json, jsmntok_t *tok, const char *s);
 
 /*Prototype*/
 bool ICACHE_FLASH_ATTR checkWifi(os_timer_t* timer);
-void ICACHE_FLASH_ATTR EstablishConnection(os_timer_t* timer);
-void ICACHE_FLASH_ATTR SendData(enum RX_INFOS mode, char* data, uint16_t len);
-void ICACHE_FLASH_ATTR SendData_cb(void* arg);
 void ICACHE_FLASH_ATTR http_cb(char * response_body, int http_status, char * response_headers, int body_size);
 void ICACHE_FLASH_ATTR saveVoltage(uint16_t voltage);
-bool ICACHE_FLASH_ATTR searchForNewParams(params* newPar);
+bool ICACHE_FLASH_ATTR searchForNewParams(Params* newPar);
 #endif /* INCLUDE_TCP_H_ */

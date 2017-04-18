@@ -6,68 +6,85 @@
  */
 #include "sleep.h"
 
-uint32_t sleepTime=2; // deir
-
-
+/******************************************************************************
+ * FunctionName : fallAsleep
+ * Description  : Function puts the device into sleep mode, clears all the flags
+ * 				  ,closes any wifi connection and clears UART buffers
+ * Parameters   : wakupType -- indicates what RF circuit will do on the device
+ * 				  wakup
+ * Returns      : none
+*******************************************************************************/
 void ICACHE_FLASH_ATTR fallAsleep(modes wakupType)
 {
 	if(wifi_station_get_connect_status() == STATION_GOT_IP)
 	{
 		wifi_station_disconnect();
 	}
-	system_deep_sleep_set_option(wakupType);
-	if(wakupType == NO_RF_CALIBRATION)
+	if(wifi_station_dhcpc_status()!=DHCP_STOPPED)
+			wifi_station_dhcpc_stop();
+	if(wifi_get_opmode_default() != NULL_MODE)
+		wifi_set_opmode(NULL_MODE);
+
+	if(readParams()->flags.configMode || readParams()->flags.sendNow)
 	{
-		if(wifi_station_dhcpc_status()!=DHCP_STOPPED)
-				wifi_station_dhcpc_stop();
-		if(wifi_get_opmode_default() != NULL_MODE)
-			wifi_set_opmode(NULL_MODE);
-		/*if(wifi_fpm_get_sleep_type()!= NONE_SLEEP_T)
-		{
-			wifi_fpm_set_sleep_type (NONE_SLEEP_T);
-			wifi_fpm_auto_sleep_set_in_null_mode(0);
-		}*/
-		if(readParams()->SetupWifi == true)
+		copyParams();
+		getCurrParPtr()->flags.sendNow=false;
+		getCurrParPtr()->flags.configMode=false;
+		storeParams();
+	}
+
+	if(wakupType == RF_DISABLED)
+	{
+		if(readParams()->flags.setupWifi == true)
 		{
 			copyParams();
-			getCurrParPtr()->SetupWifi = false;
+			getCurrParPtr()->flags.setupWifi = false;
 			storeParams();
 		}
 	}
 
-
-	if(readParams()->configMode || readParams()->sendNow)
-	{
-		copyParams();
-		getCurrParPtr()->sendNow=false;
-		getCurrParPtr()->configMode=false;
-		storeParams();
-	}
 	SET_PERI_REG_MASK(UART_CONF0(0), UART_TXFIFO_RST);//RESET FIFO
 	CLEAR_PERI_REG_MASK(UART_CONF0(0), UART_TXFIFO_RST);
 
-	if(!rtcSetTimer(readParams()->sleepTime_s/60) || readParams()->sleepTime_s < 60)
+	system_deep_sleep_set_option(wakupType);
+
+	if(!rtcSetTimer(readParams()->sensorData.sleepTime_s/60) || readParams()->sensorData.sleepTime_s < 60)
 	{
 		ets_uart_printf("RTC SLEEP FAILED! Falling asleep using standard rtc\r\n");
-		system_deep_sleep_instant(readParams()->sleepTime_s*1000000);
+		system_deep_sleep(readParams()->sensorData.sleepTime_s*1000000);
 	}
 	else
 	{
 		ets_uart_printf("Sleeping using RTC\r\n");
-		system_deep_sleep_instant(0); // in seconds now
+		system_deep_sleep(0); // in seconds now
 	}
 
 
 }
 
+/******************************************************************************
+ * FunctionName : getSleepTime
+ * Description  : Gets currently stored sleep time in seconds
+ * Parameters   : none
+ * Returns      : sleep time in seconds
+*******************************************************************************/
+
 uint32_t ICACHE_FLASH_ATTR getSleepTime(){
-	return readParams()->sleepTime_s;
+	return readParams()->sensorData.sleepTime_s;
 }
+
+/******************************************************************************
+ * FunctionName : setSleepTime
+ * Description  : Sets the new sleep time and stores it in the memory
+ * Parameters   : newTime -- new sleep time in seconds
+ * Returns      : none
+*******************************************************************************/
 
 void ICACHE_FLASH_ATTR setSleepTime(uint32_t newTime)
 {
+	uint32_t sleepTime=2;
 	sleepTime=newTime;
 	copyParams();
-	getCurrParPtr()->sleepTime_s=sleepTime;
+	getCurrParPtr()->sensorData.sleepTime_s=sleepTime;
 	storeParams();
 }
