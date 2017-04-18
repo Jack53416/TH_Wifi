@@ -32,7 +32,7 @@ void ICACHE_FLASH_ATTR saveHumidity(uint16_t hum)
 
 void ICACHE_FLASH_ATTR saveOffsetTime(uint32_t offset)
 {
-	currentMes.offset_time=offset;
+	currentMes.timestamp=offset;
 }
 
 int16_t ICACHE_FLASH_ATTR getTemperature()
@@ -160,10 +160,6 @@ void ICACHE_FLASH_ATTR readFromFlash(uint16 sector,uint32 indx,void* destination
 	{
 		spi_flash_read(sector*4*1024+indx*sizeof(Measurement),(uint32*)destination,size);
 		os_delay_us(3000);
-#ifdef DEBUG
-		ets_uart_printf("RF:T:%d H:%d O: %d with sc:%d,inx:%d\r\n",readMes.temperature,readMes.temperature,readMes.offset_time,
-				sector,indx);
-#endif
 	}
 
 }

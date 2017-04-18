@@ -16,12 +16,16 @@ bool ICACHE_FLASH_ATTR isButtonPressed();
 void ICACHE_FLASH_ATTR checkButton();
 void ICACHE_FLASH_ATTR restartToRF();
 
+/******************************************************************************
+ * FunctionName : user_init
+ * Description  : Entry function for the application. It initializes memory, GPIO button PIN,
+ * 				  checks if the button was pressed
+ * Parameters   : none
+ * Returns      : none
+*******************************************************************************/
 
 void ICACHE_FLASH_ATTR user_init(void)
 {
-#ifdef DEBUG
-	uart_init(BIT_RATE_74880, BIT_RATE_74880);
-#endif
 	Params* readPar;
 
 	initMemory();
@@ -33,8 +37,6 @@ void ICACHE_FLASH_ATTR user_init(void)
 
 	if(!readPar->flags.sendNow && !readPar->flags.configMode)
 		checkButton();
-	/*ets_uart_printf("Flash ID: %d\r\n", spi_flash_get_id());
-	ets_uart_printf("Sleep type: %d\r\n", wifi_fpm_get_sleep_type());*/
 	if(readParams()->flags.configMode==true)
 	{
 		setConfig(true);
@@ -68,8 +70,14 @@ void ICACHE_FLASH_ATTR user_init(void)
 
 }
 
-uint32 ICACHE_FLASH_ATTR
-user_rf_cal_sector_set(void)
+/******************************************************************************
+ * FunctionName : user_rf_cal_sector_set
+ * Description  : required by SDK 2.0
+ * Parameters   : none
+ * Returns      : none
+*******************************************************************************/
+
+uint32 ICACHE_FLASH_ATTR user_rf_cal_sector_set(void)
 {
     enum flash_size_map size_map = system_get_flash_size_map();
     uint32 rf_cal_sec = 0;
@@ -101,10 +109,25 @@ user_rf_cal_sector_set(void)
     return rf_cal_sec;
 }
 
+/******************************************************************************
+ * FunctionName : user_rf_pre_init
+ * Description  : Function that is executed before main application
+ * Parameters   : none
+ * Returns      : none
+*******************************************************************************/
+
 void ICACHE_FLASH_ATTR user_rf_pre_init(void)
 {
 	system_set_os_print(0);
 }
+
+/******************************************************************************
+ * FunctionName : initDone
+ * Description  : Executed right after user_init, used for calling wifi related
+ * 				  methods
+ * Parameters   : none
+ * Returns      : none
+*******************************************************************************/
 
 void ICACHE_FLASH_ATTR initDone()
 {
@@ -130,6 +153,13 @@ void ICACHE_FLASH_ATTR initDone()
 
 }
 
+/******************************************************************************
+ * FunctionName : isButtonPressed
+ * Description  : chekcs if button tied to GPIO4 is currently pressed
+ * Parameters   : none
+ * Returns      : true if its pressed, false otherwise
+*******************************************************************************/
+
 bool ICACHE_FLASH_ATTR isButtonPressed()
 {
 	if(GPIO_INPUT_GET(4)==1)
@@ -137,6 +167,13 @@ bool ICACHE_FLASH_ATTR isButtonPressed()
 	return true;
 }
 
+/******************************************************************************
+ * FunctionName : checkButton
+ * Description  : checks the button and determines if theere was a long or short
+ * 				  press. Then it sets appropriate flag accordingly
+ * Parameters   : none
+ * Returns      : none
+*******************************************************************************/
 void ICACHE_FLASH_ATTR checkButton()
 {
 #define CHECK_INTERVAL 10
@@ -167,6 +204,14 @@ void ICACHE_FLASH_ATTR checkButton()
 		}
 }
 
+/******************************************************************************
+ * FunctionName : restartToRF
+ * Description  : restarts the device and sets RF callibration and WiFi connection
+ * 				  at wake-up
+ * Parameters   : none
+ * Returns      : none
+*******************************************************************************/
+
 void ICACHE_FLASH_ATTR restartToRF()
 {
 	copyParams();
@@ -175,17 +220,6 @@ void ICACHE_FLASH_ATTR restartToRF()
 	system_deep_sleep_set_option(1);
 	system_deep_sleep_instant(100);
 }
-
-//wzor opisu funkcji...., moze kiedys :D
-
-/******************************************************************************
- * FunctionName : user_devicefind_recv
- * Description  : Processing the received data from the host
- * Parameters   : arg -- Additional argument to pass to the callback function
- *                pusrdata -- The received data (or NULL when the connection has been closed!)
- *                length -- The length of received data
- * Returns      : none
-*******************************************************************************/
 
 
 
